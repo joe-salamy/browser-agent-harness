@@ -12,7 +12,9 @@
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "demo:seed": "prisma migrate dev --name init && prisma db seed"
+    "demo:seed": "prisma migrate dev --name init && prisma db seed",
+    "skill-chain:create": "tsx scripts/create-skill-chain.ts",
+    "skill-chain": "tsx scripts/run-skill-chain.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "latest",

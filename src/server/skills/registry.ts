@@ -1,5 +1,6 @@
 import { WorkspaceRole } from "@prisma/client";
 import type { AgentRunResult } from "@/server/agents/runtime";
+import { buildSkillChainManifest } from "@/server/skill-chains/builder";
 import { minimalAgentRuntime } from "@/server/agents/minimal-runtime";
 import { writeAuditLog } from "@/server/audit/log";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
@@ -11,6 +12,12 @@ export const BUILT_IN_SKILLS = {
     description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
     requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
   },
+  "core.chain-builder": {
+    id: "core.chain-builder",
+    name: "Chain Builder",
+    description: "Creates validated JSON skill-chain manifests from a user goal.",
+    requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
+  },
 } as const;
 
 export type BuiltInSkillId = keyof typeof BUILT_IN_SKILLS;
@@ -18,8 +25,10 @@ export type BuiltInSkillId = keyof typeof BUILT_IN_SKILLS;
 export async function runSkill(input: {
   userId: string;
   workspaceId: string;
-  skillId: "core.research-synthesis";
+  skillId: BuiltInSkillId;
   prompt?: string;
+  model?: string;
+  outputPath?: string;
 }): Promise<AgentRunResult> {
   const skill = BUILT_IN_SKILLS[input.skillId];
   await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
@@ -32,10 +41,24 @@ export async function runSkill(input: {
     summary: `Started skill ${skill.name}.`,
     metadata: { skillId: input.skillId },
   });
-  const suffix = input.prompt?.trim() ? ` ${input.prompt.trim()}` : "";
-  return minimalAgentRuntime.run({
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-    prompt: `Synthesize the readable workspace files into: Summary, Key Findings, Source Notes, and Recommended Next Steps.${suffix}`,
-  });
+  switch (input.skillId) {
+    case "core.research-synthesis": {
+      const suffix = input.prompt?.trim() ? ` ${input.prompt.trim()}` : "";
+      return minimalAgentRuntime.run({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        prompt: `Synthesize the readable workspace files into: Summary, Key Findings, Source Notes, and Recommended Next Steps.${suffix}`,
+        model: input.model,
+        outputPath: input.outputPath,
+      });
+    }
+    case "core.chain-builder":
+      return buildSkillChainManifest({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        prompt: input.prompt ?? "",
+        model: input.model,
+        outputPath: input.outputPath,
+      });
+  }
 }

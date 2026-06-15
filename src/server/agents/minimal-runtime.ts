@@ -134,10 +134,11 @@ export class MinimalAgentRuntime implements AgentRuntime {
       });
 
       const date = new Date().toISOString().slice(0, 10);
+      const outputPath = input.outputPath ?? `outputs/${date}-${run.id}.md`;
       const output = await createWorkspaceFile({
         userId: input.userId,
         workspaceId: input.workspaceId,
-        path: `outputs/${date}-${run.id}.md`,
+        path: outputPath,
         bytes: Buffer.from(result.text, "utf8"),
         contentType: "text/markdown",
         createdByRunId: run.id,
@@ -174,7 +175,7 @@ export class MinimalAgentRuntime implements AgentRuntime {
         metadata: { outputFileId: output.id, truncated },
       });
 
-      return { runId: run.id, status: "SUCCEEDED", outputFileId: output.id };
+      return { runId: run.id, status: "SUCCEEDED", outputFileId: output.id, outputPath: output.path };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Agent run failed.";
       await prisma.agentRun.update({

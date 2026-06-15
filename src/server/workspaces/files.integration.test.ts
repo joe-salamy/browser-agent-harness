@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { describe, expect, it } from "vitest";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createWorkspaceFile, readWorkspaceTextFile, UnsupportedTextFileError, writeWorkspaceTextFile } from "./files";
+import { createWorkspaceFile, getWorkspaceFileByPath, readWorkspaceTextFile, UnsupportedTextFileError, writeWorkspaceTextFile } from "./files";
 
 const dbDescribe = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -36,6 +36,22 @@ dbDescribe("workspace file persistence invariants", () => {
     expect(second.previousVersionId).toBe(first.currentVersionId);
     expect(third.versionNumber).toBe(3);
     expect(third.previousVersionId).toBe(second.id);
+  });
+
+  it("looks up active files by normalized workspace path without reading bytes", async () => {
+    const { userId, workspaceId } = await createFixture("path-lookup");
+    const file = await createWorkspaceFile({
+      userId,
+      workspaceId,
+      path: "chains\\manifest.json",
+      bytes: Buffer.from("{}"),
+      contentType: "application/json",
+    });
+
+    const found = await getWorkspaceFileByPath(userId, workspaceId, "./chains//manifest.json");
+
+    expect(found?.id).toBe(file.id);
+    expect(found?.currentVersion?.sizeBytes).toBe(2);
   });
 });
 

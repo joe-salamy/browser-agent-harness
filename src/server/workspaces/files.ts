@@ -79,6 +79,19 @@ export async function listWorkspaceFiles(
   });
 }
 
+export async function getWorkspaceFileByPath(
+  userId: string,
+  workspaceId: string,
+  inputPath: string,
+): Promise<WorkspaceFileWithCurrentVersion | null> {
+  await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.VIEWER);
+  const normalizedPath = normalizeWorkspacePath(inputPath);
+  return prisma.workspaceFile.findFirst({
+    where: { workspaceId, path: normalizedPath, deletedAt: null },
+    include: { currentVersion: true },
+  });
+}
+
 export async function readWorkspaceTextFile(
   userId: string,
   workspaceId: string,

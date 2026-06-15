@@ -17,6 +17,8 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
       workspaceId,
       skillId: skillId as BuiltInSkillId,
       prompt: String(formData.get("prompt") ?? ""),
+      model: String(formData.get("model") ?? "") || undefined,
+      outputPath: String(formData.get("outputPath") ?? "") || undefined,
     });
     return NextResponse.json(result);
   } catch (error) {
