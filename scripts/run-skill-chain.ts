@@ -19,6 +19,20 @@ type ParsedArgs = {
   dryRun: boolean;
 };
 
+function shellQuote(value: string): string {
+  return process.platform === "win32" ? `'${value.replaceAll("'", "''")}'` : `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function formatSkillChainCommand(args: Record<string, string>): string {
+  return [
+    "npm",
+    "run",
+    "skill-chain",
+    "--",
+    ...Object.entries(args).flatMap(([name, value]) => [`--${name}`, shellQuote(value)]),
+  ].join(" ");
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args: ParsedArgs = { dryRun: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -147,7 +161,11 @@ async function main(): Promise<void> {
   if (result.status === "FAILED" || result.status === "WAITING_FOR_INPUT") {
     if (result.errorMessage) console.log(`Error: ${result.errorMessage}`);
     console.log(
-      `Resume command: npm run skill-chain -- --resume-state-path ${JSON.stringify(result.statePath)} --user-email ${JSON.stringify(resolved.userEmail)} --workspace-id ${JSON.stringify(resolved.workspaceId)}`,
+      `Resume command: ${formatSkillChainCommand({
+        "resume-state-path": result.statePath,
+        "user-email": resolved.userEmail,
+        "workspace-id": resolved.workspaceId,
+      })}`,
     );
   }
 }

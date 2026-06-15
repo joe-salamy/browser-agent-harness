@@ -34,10 +34,37 @@ describe("skill chain manifest validation", () => {
     ).toThrow("Invalid skill chain manifest.");
   });
 
+  it("rejects duplicate step ids", () => {
+    expect(() =>
+      parseSkillChainManifest({
+        ...validManifest,
+        steps: [validManifest.steps[0], { ...validManifest.steps[0], prompt: "Research again." }],
+      }),
+    ).toThrow("Invalid skill chain manifest.");
+  });
+
+  it("rejects unsafe output path templates at the manifest boundary", () => {
+    expect(() =>
+      parseSkillChainManifest({
+        ...validManifest,
+        steps: [{ ...validManifest.steps[0], outputPath: "../escape.md" }],
+      }),
+    ).toThrow("Invalid skill chain manifest.");
+  });
+
+  it("rejects inherited output path template tokens at the manifest boundary", () => {
+    expect(() =>
+      parseSkillChainManifest({
+        ...validManifest,
+        steps: [{ ...validManifest.steps[0], outputPath: "chains/example/{{runId}}/{{constructor}}.md" }],
+      }),
+    ).toThrow("Invalid skill chain manifest.");
+  });
+
   it("rejects unknown output path template tokens", () => {
     expect(() =>
       renderSkillChainOutputPath({
-        template: "chains/example/{{runId}}/{{bad}}.md",
+        template: "chains/example/{{runId}}/{{constructor}}.md",
         runId: "run-1",
         stepId: "market-research",
         stepIndex: 0,

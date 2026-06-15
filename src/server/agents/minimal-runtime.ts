@@ -4,7 +4,13 @@ import { writeAuditLog } from "@/server/audit/log";
 import type { AgentRunRequest, AgentRunResult, AgentRuntime } from "@/server/agents/runtime";
 import { getDefaultModelProvider } from "@/server/models/credentials";
 import { resolveOpenRouterModel } from "@/server/models/openrouter";
-import { createWorkspaceFile, isCoreReadableText, listWorkspaceFiles, readWorkspaceTextFile } from "@/server/workspaces/files";
+import {
+  createWorkspaceFile,
+  isCoreReadableText,
+  listWorkspaceFiles,
+  normalizeWorkspacePath,
+  readWorkspaceTextFile,
+} from "@/server/workspaces/files";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
 const SYSTEM_PROMPT =
@@ -53,6 +59,7 @@ export class MinimalAgentRuntime implements AgentRuntime {
     if (!prompt) throw new Error("Prompt is required.");
     const modelName = resolveOpenRouterModel(input.model);
     const workspace = await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
+    const requestedOutputPath = input.outputPath ? normalizeWorkspacePath(input.outputPath) : undefined;
     const run = await prisma.agentRun.create({
       data: {
         workspaceId: input.workspaceId,
@@ -134,7 +141,7 @@ export class MinimalAgentRuntime implements AgentRuntime {
       });
 
       const date = new Date().toISOString().slice(0, 10);
-      const outputPath = input.outputPath ?? `outputs/${date}-${run.id}.md`;
+      const outputPath = requestedOutputPath ?? `outputs/${date}-${run.id}.md`;
       const output = await createWorkspaceFile({
         userId: input.userId,
         workspaceId: input.workspaceId,

@@ -42,6 +42,17 @@ describe("skill registry authorization and dispatch", () => {
     expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
   });
 
+  it("rejects unknown skill ids before access or audit side effects", async () => {
+    await expect(
+      runSkill({ userId: "user-1", workspaceId: "workspace-1", skillId: "toString" }),
+    ).rejects.toThrow("Unknown skill.");
+
+    expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+    expect(mocks.runtimeRun).not.toHaveBeenCalled();
+    expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
+  });
+
   it("forwards model and output path to research synthesis runtime", async () => {
     mocks.assertWorkspaceAccess.mockResolvedValueOnce({});
     mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-1", status: "SUCCEEDED", outputFileId: "file-1" });

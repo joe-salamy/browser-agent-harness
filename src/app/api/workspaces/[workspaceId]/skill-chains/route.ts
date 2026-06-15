@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { WorkspaceRole } from "@prisma/client";
 import { requireUserId } from "@/lib/auth";
 import type { SkillChainManifest } from "@/server/skill-chains/types";
 import { runSkillChain } from "@/server/skill-chains/runner";
+import { assertWorkspaceAccess } from "@/server/workspaces/access";
 import { workspaceRouteErrorResponse } from "../../route-errors";
 
 type SkillChainRunBody = {
@@ -13,16 +15,26 @@ type SkillChainRunBody = {
   resumeStatePath?: string;
 };
 
+type SkillChainStringField = Exclude<keyof SkillChainRunBody, "manifest">;
+
+function optionalStringField(record: Record<string, unknown>, field: SkillChainStringField): string | undefined {
+  const value = record[field];
+  if (value == null) return undefined;
+  if (typeof value !== "string") throw new Error("Invalid request body.");
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
 function parseBody(value: unknown): SkillChainRunBody {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("Invalid request body.");
   const record = value as Record<string, unknown>;
   return {
     manifest: record.manifest,
-    manifestFileId: typeof record.manifestFileId === "string" ? record.manifestFileId : undefined,
-    manifestPath: typeof record.manifestPath === "string" ? record.manifestPath : undefined,
-    initialInput: typeof record.initialInput === "string" ? record.initialInput : undefined,
-    model: typeof record.model === "string" ? record.model : undefined,
-    resumeStatePath: typeof record.resumeStatePath === "string" ? record.resumeStatePath : undefined,
+    manifestFileId: optionalStringField(record, "manifestFileId"),
+    manifestPath: optionalStringField(record, "manifestPath"),
+    initialInput: optionalStringField(record, "initialInput"),
+    model: optionalStringField(record, "model"),
+    resumeStatePath: optionalStringField(record, "resumeStatePath"),
   };
 }
 
@@ -30,6 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
   try {
     const userId = await requireUserId();
     const { workspaceId } = await context.params;
+    await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.EDITOR);
     const body = parseBody(await request.json());
     const result = await runSkillChain({
       userId,

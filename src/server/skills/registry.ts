@@ -22,14 +22,19 @@ export const BUILT_IN_SKILLS = {
 
 export type BuiltInSkillId = keyof typeof BUILT_IN_SKILLS;
 
+function isBuiltInSkillId(skillId: string): skillId is BuiltInSkillId {
+  return Object.prototype.hasOwnProperty.call(BUILT_IN_SKILLS, skillId);
+}
+
 export async function runSkill(input: {
   userId: string;
   workspaceId: string;
-  skillId: BuiltInSkillId;
+  skillId: string;
   prompt?: string;
   model?: string;
   outputPath?: string;
 }): Promise<AgentRunResult> {
+  if (!isBuiltInSkillId(input.skillId)) throw new Error("Unknown skill.");
   const skill = BUILT_IN_SKILLS[input.skillId];
   await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
   await writeAuditLog({

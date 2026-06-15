@@ -15,6 +15,20 @@ type ParsedArgs = {
   dryRun: boolean;
 };
 
+function shellQuote(value: string): string {
+  return process.platform === "win32" ? `'${value.replaceAll("'", "''")}'` : `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function formatSkillChainCommand(args: Record<string, string>): string {
+  return [
+    "npm",
+    "run",
+    "skill-chain",
+    "--",
+    ...Object.entries(args).flatMap(([name, value]) => [`--${name}`, shellQuote(value)]),
+  ].join(" ");
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args: ParsedArgs = { dryRun: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -105,7 +119,12 @@ async function main(): Promise<void> {
   console.log(`Output file: ${result.outputFileId ?? "-"}`);
   if (manifestPath) {
     console.log(
-      `Run command: npm run skill-chain -- --manifest-workspace-path ${JSON.stringify(manifestPath)} --user-email ${JSON.stringify(resolved.userEmail)} --workspace-id ${JSON.stringify(resolved.workspaceId)} --input ${JSON.stringify(goal)}`,
+      `Run command: ${formatSkillChainCommand({
+        "manifest-workspace-path": manifestPath,
+        "user-email": resolved.userEmail,
+        "workspace-id": resolved.workspaceId,
+        input: goal,
+      })}`,
     );
   }
   if (result.status === "FAILED" && result.errorMessage) console.log(`Error: ${result.errorMessage}`);

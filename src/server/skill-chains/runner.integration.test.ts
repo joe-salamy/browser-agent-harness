@@ -90,6 +90,36 @@ dbDescribe("skill chain runner persistence", () => {
     const state = await readState(userId, workspaceId, resumed.statePath);
     expect(state.status).toBe("SUCCEEDED");
   });
+
+  it("prechecks rendered output path collisions before executing steps", async () => {
+    const { userId, workspaceId } = await createFixture("chain-output-collision");
+    const manifest = makeManifest("chain-output-collision");
+    manifest.steps[0].outputPath = `chains/${manifest.id}/{{runId}}/{{stepIndex}}-shared.md`;
+    manifest.steps[1].outputPath = `chains/${manifest.id}/{{runId}}/01-shared.md`;
+    let callCount = 0;
+    const executeStep: SkillChainStepExecutor = async (input) => {
+      callCount += 1;
+      const file = await createWorkspaceFile({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        path: input.outputPath,
+        bytes: Buffer.from(`Output for ${input.stepId}`),
+        contentType: "text/markdown",
+      });
+      return { status: "SUCCEEDED", outputFileId: file.id, outputPath: file.path };
+    };
+
+    await expect(
+      runSkillChain({
+        userId,
+        workspaceId,
+        manifest,
+        initialInput: "Evaluate a browser-native agent harness.",
+        executeStep,
+      }),
+    ).rejects.toThrow("Duplicate skill chain output path");
+    expect(callCount).toBe(0);
+  });
 });
 
 function makeManifest(id: string): SkillChainManifest {

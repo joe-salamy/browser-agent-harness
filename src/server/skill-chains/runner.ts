@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { WorkspaceRole } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/log";
 import { runSkill } from "@/server/skills/registry";
@@ -118,6 +119,12 @@ function parseSkillChainState(value: unknown): SkillChainState {
       errorMessage: typeof stepValue.errorMessage === "string" ? stepValue.errorMessage : undefined,
     };
   });
+  if (steps.length === 0) throw new Error("Invalid skill chain state steps.");
+  const currentStepIndex =
+    typeof value.currentStepIndex === "number" && Number.isInteger(value.currentStepIndex) ? value.currentStepIndex : 0;
+  if (currentStepIndex < 0 || currentStepIndex > steps.length || (status !== "SUCCEEDED" && currentStepIndex === steps.length)) {
+    throw new Error("Invalid skill chain state current step index.");
+  }
   return {
     version: SKILL_CHAIN_STATE_VERSION,
     runId: requireString(value.runId, "runId"),
@@ -128,7 +135,7 @@ function parseSkillChainState(value: unknown): SkillChainState {
     manifestPath: requireString(value.manifestPath, "manifestPath"),
     initialInputPath: requireString(value.initialInputPath, "initialInputPath"),
     status,
-    currentStepIndex: typeof value.currentStepIndex === "number" ? value.currentStepIndex : 0,
+    currentStepIndex,
     createdAt: requireString(value.createdAt, "createdAt"),
     updatedAt: requireString(value.updatedAt, "updatedAt"),
     steps,
@@ -209,10 +216,33 @@ async function persistState(input: { userId: string; workspaceId: string; state:
 }
 
 async function precheckMissing(input: { userId: string; workspaceId: string; paths: string[] }): Promise<void> {
+  const seen = new Set<string>();
   for (const path of input.paths) {
+    if (seen.has(path)) throw new Error(`Duplicate skill chain artifact path: ${path}.`);
+    seen.add(path);
     const existing = await getWorkspaceFileByPath(input.userId, input.workspaceId, path);
     if (existing) throw new Error(`Skill chain artifact already exists: ${path}.`);
   }
+}
+
+function renderManifestOutputPaths(manifest: SkillChainManifest, runId: string): string[] {
+  const paths: string[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < manifest.steps.length; index += 1) {
+    const step = manifest.steps[index];
+    const outputPath = renderSkillChainOutputPath({
+      template: step.outputPath,
+      runId,
+      stepId: step.id,
+      stepIndex: index,
+    });
+    if (seen.has(outputPath)) {
+      throw new Error(`Duplicate skill chain output path: ${outputPath}.`);
+    }
+    seen.add(outputPath);
+    paths.push(outputPath);
+  }
+  return paths;
 }
 
 function makeInitialState(input: {
@@ -252,11 +282,16 @@ async function setupNewRun(input: RunSkillChainInput): Promise<ResolvedSetup> {
   const initialInput = input.initialInput?.trim();
   if (!initialInput) throw new Error("Initial input is required.");
   const { manifest } = await loadManifestFromInput(input);
-  const runId = `${manifest.id}-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
+  const runId = `${manifest.id}-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`;
   const statePath = `chains/${manifest.id}/${runId}/chain-state.json`;
   const manifestPath = `chains/${manifest.id}/${runId}/chain-manifest.json`;
   const initialInputPath = `chains/${manifest.id}/${runId}/initial-input.md`;
-  await precheckMissing({ userId: input.userId, workspaceId: input.workspaceId, paths: [statePath, manifestPath, initialInputPath] });
+  const outputPaths = renderManifestOutputPaths(manifest, runId);
+  await precheckMissing({
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+    paths: [statePath, manifestPath, initialInputPath, ...outputPaths],
+  });
   await createWorkspaceFile({
     userId: input.userId,
     workspaceId: input.workspaceId,
