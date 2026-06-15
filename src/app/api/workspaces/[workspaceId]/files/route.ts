@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
 import { createWorkspaceFile } from "@/server/workspaces/files";
+import { workspaceRouteErrorResponse } from "../../route-errors";
 
 export async function POST(request: Request, context: { params: Promise<{ workspaceId: string }> }) {
   try {
@@ -20,6 +21,6 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
     });
     return NextResponse.json({ id: created.id });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Upload failed." }, { status: 400 });
+    return workspaceRouteErrorResponse(error, "Upload failed.", 400);
   }
 }

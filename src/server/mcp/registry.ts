@@ -3,11 +3,26 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
-function validateMcpUrl(transport: "HTTP_SSE" | "STDIO_DEV", rawUrl?: string): string | null {
+function parseMcpTransport(transport: string): "HTTP_SSE" | "STDIO_DEV" {
+  if (transport === "HTTP_SSE" || transport === "STDIO_DEV") return transport;
+  throw new Error("Unsupported MCP transport.");
+}
+
+export function validateMcpUrl(transport: "HTTP_SSE" | "STDIO_DEV", rawUrl?: string): string | null {
   if (transport === "STDIO_DEV") return rawUrl?.trim() || null;
   const value = rawUrl?.trim();
   if (!value) throw new Error("HTTP_SSE MCP connections require a URL.");
-  const url = new URL(value);
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("HTTP_SSE MCP connection URL is invalid.");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("MCP connection URLs must not include credentials.");
+  }
   const isLocalhost = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
   if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
     throw new Error("HTTP_SSE MCP connections require https:// URLs in production.");
@@ -22,22 +37,23 @@ export async function createMcpConnection(input: {
   userId: string;
   workspaceId: string;
   name: string;
-  transport: "HTTP_SSE" | "STDIO_DEV";
+  transport: string;
   url?: string;
 }): Promise<McpConnection> {
   await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
   const name = input.name.trim();
   if (!name) throw new Error("MCP connection name is required.");
-  if (input.transport === "STDIO_DEV" && process.env.NODE_ENV === "production") {
+  const transport = parseMcpTransport(input.transport);
+  if (transport === "STDIO_DEV" && process.env.NODE_ENV === "production") {
     throw new Error("STDIO_DEV MCP connections are disabled in production.");
   }
   const connection = await prisma.mcpConnection.create({
     data: {
       workspaceId: input.workspaceId,
       name,
-      transport: input.transport as McpTransport,
-      url: validateMcpUrl(input.transport, input.url),
-      enabled: input.transport === "HTTP_SSE" || process.env.NODE_ENV !== "production",
+      transport: transport as McpTransport,
+      url: validateMcpUrl(transport, input.url),
+      enabled: transport === "HTTP_SSE" || process.env.NODE_ENV !== "production",
       createdById: input.userId,
     },
   });
@@ -48,7 +64,7 @@ export async function createMcpConnection(input: {
     targetType: "mcpConnection",
     targetId: connection.id,
     summary: `Created MCP connection ${name}.`,
-    metadata: { transport: input.transport, enabled: connection.enabled },
+    metadata: { transport, enabled: connection.enabled },
   });
   return connection;
 }
@@ -93,7 +109,7 @@ export async function listWorkspaceMcpConnections(
   userId: string,
   workspaceId: string,
 ): Promise<Array<McpConnection & { permissions: McpPermission[] }>> {
-  await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.VIEWER);
+  await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.OWNER);
   return prisma.mcpConnection.findMany({
     where: { workspaceId },
     include: { permissions: { orderBy: { toolName: "asc" } } },

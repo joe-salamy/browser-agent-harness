@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
 import { minimalAgentRuntime } from "@/server/agents/minimal-runtime";
+import { workspaceRouteErrorResponse } from "../../route-errors";
 
 export async function POST(request: Request, context: { params: Promise<{ workspaceId: string }> }) {
   try {
@@ -13,6 +14,6 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
     const result = await minimalAgentRuntime.run({ userId, workspaceId, prompt, model });
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Run failed." }, { status: 400 });
+    return workspaceRouteErrorResponse(error, "Run failed.", 400);
   }
 }

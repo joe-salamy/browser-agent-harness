@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
 import { listAuditLogs } from "@/server/audit/log";
+import { workspaceRouteErrorResponse } from "../../../route-errors";
 
 export async function GET(_request: Request, context: { params: Promise<{ workspaceId: string }> }) {
   try {
@@ -14,6 +14,6 @@ export async function GET(_request: Request, context: { params: Promise<{ worksp
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Audit export failed." }, { status: 403 });
+    return workspaceRouteErrorResponse(error, "Audit export failed.", 404);
   }
 }

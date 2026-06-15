@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserId } from "@/lib/auth";
 import { listWorkspaceMcpConnections } from "@/server/mcp/registry";
 import { createMcpConnectionAction, setMcpPermissionAction } from "../../../actions";
+import { requireWorkspaceOwner } from "../require-owner";
 
 type Props = { params: Promise<{ workspaceId: string }> };
 
@@ -10,6 +11,7 @@ export default async function McpSettingsPage({ params }: Props) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/sign-in");
   const { workspaceId } = await params;
+  await requireWorkspaceOwner(userId, workspaceId);
   const connections = await listWorkspaceMcpConnections(userId, workspaceId);
 
   return (

@@ -61,7 +61,7 @@ export function RunForm({ workspaceId }: { workspaceId: string }) {
           {result.errorMessage ? <span style={{ color: "#b91c1c" }}>{result.errorMessage}</span> : null}
         </p>
       ) : null}
-      {error ? <p style={{ color: "#b91c1c" }}>{error}</p> : null}
+      {error ? <p role="alert" style={{ color: "#b91c1c" }}>{error}</p> : null}
     </div>
   );
 }

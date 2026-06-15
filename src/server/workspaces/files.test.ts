@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCoreReadableText, normalizeWorkspacePath, UnsupportedTextFileError } from "./files";
+import { isCoreReadableText, normalizeContentType, normalizeWorkspacePath, UnsupportedTextFileError } from "./files";
 
 describe("workspace file path policy", () => {
   it("normalizes safe relative POSIX-style paths", () => {
@@ -7,10 +7,36 @@ describe("workspace file path policy", () => {
     expect(normalizeWorkspacePath("./folder//notes.md")).toBe("folder/notes.md");
   });
 
-  it.each(["", "   ", "/notes.md", "C:/notes.md", "../notes.md", "folder/../notes.md", `a${"b".repeat(512)}.md`, "bad\0name.md"])(
+  it.each([
+    "",
+    "   ",
+    "/notes.md",
+    "C:/notes.md",
+    "C:notes.md",
+    "folder/C:notes.md",
+    "../notes.md",
+    "folder/../notes.md",
+    `a${"b".repeat(512)}.md`,
+    "bad\0name.md",
+    "line\nbreak.md",
+    "bad\u007fname.md",
+  ])(
     "rejects invalid path %s",
     (value) => {
       expect(() => normalizeWorkspacePath(value)).toThrow();
+    },
+  );
+});
+
+describe("workspace file content type policy", () => {
+  it("normalizes supported MIME values", () => {
+    expect(normalizeContentType(" Text/Plain; Charset=UTF-8 ")).toBe("text/plain; charset=utf-8");
+  });
+
+  it.each(["", "plain", "text/plain\r\nx-evil: yes", `text/${"a".repeat(260)}`])(
+    "rejects invalid content type %s",
+    (value) => {
+      expect(() => normalizeContentType(value)).toThrow("Invalid content type.");
     },
   );
 });

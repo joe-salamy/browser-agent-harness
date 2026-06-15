@@ -58,7 +58,7 @@ export async function createMcpConnectionAction(formData: FormData): Promise<voi
     userId,
     workspaceId,
     name: String(formData.get("name") ?? ""),
-    transport: String(formData.get("transport") ?? "HTTP_SSE") as "HTTP_SSE" | "STDIO_DEV",
+    transport: String(formData.get("transport") ?? "HTTP_SSE"),
     url: String(formData.get("url") ?? ""),
   });
   revalidatePath(`/workspaces/${workspaceId}/settings/mcp`);

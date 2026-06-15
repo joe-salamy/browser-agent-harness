@@ -1,10 +1,18 @@
-import { ModelProvider, WorkspaceRole, type ModelCredential } from "@prisma/client";
+import { ModelProvider, WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
 import { OpenRouterAdapter, DEFAULT_OPENROUTER_MODEL } from "@/server/models/openrouter";
 import type { ModelProviderAdapter } from "@/server/models/provider";
 import { encryptSecret, decryptSecret } from "@/server/security/encryption";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
+
+export type ModelCredentialSummary = {
+  id: string;
+  provider: ModelProvider;
+  label: string;
+  isDefault: boolean;
+  createdAt: Date;
+};
 
 export async function saveOpenRouterCredential(input: {
   userId: string;
@@ -54,10 +62,11 @@ export async function revokeModelCredential(input: {
   credentialId: string;
 }): Promise<void> {
   await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
-  await prisma.modelCredential.updateMany({
-    where: { id: input.credentialId, workspaceId: input.workspaceId },
+  const result = await prisma.modelCredential.updateMany({
+    where: { id: input.credentialId, workspaceId: input.workspaceId, revokedAt: null },
     data: { revokedAt: new Date(), isDefault: false },
   });
+  if (result.count === 0) throw new Error("Model credential not found.");
   await writeAuditLog({
     workspaceId: input.workspaceId,
     actorUserId: input.userId,
@@ -69,10 +78,11 @@ export async function revokeModelCredential(input: {
   });
 }
 
-export async function listModelCredentials(userId: string, workspaceId: string): Promise<ModelCredential[]> {
+export async function listModelCredentials(userId: string, workspaceId: string): Promise<ModelCredentialSummary[]> {
   await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.OWNER);
   return prisma.modelCredential.findMany({
     where: { workspaceId, revokedAt: null },
+    select: { id: true, provider: true, label: true, isDefault: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
 }

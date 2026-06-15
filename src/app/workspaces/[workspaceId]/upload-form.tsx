@@ -36,7 +36,7 @@ export function UploadForm({ workspaceId }: { workspaceId: string }) {
         <input className="input" name="path" placeholder="notes.md" />
       </label>
       <button className="btn" type="submit" disabled={isPending}>{isPending ? "Uploading..." : "Upload file"}</button>
-      {message ? <p className="muted">{message}</p> : null}
+      {message ? <p className="muted" aria-live="polite">{message}</p> : null}
     </form>
   );
 }

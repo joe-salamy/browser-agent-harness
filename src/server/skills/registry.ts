@@ -1,6 +1,8 @@
+import { WorkspaceRole } from "@prisma/client";
 import type { AgentRunResult } from "@/server/agents/runtime";
 import { minimalAgentRuntime } from "@/server/agents/minimal-runtime";
 import { writeAuditLog } from "@/server/audit/log";
+import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
 export const BUILT_IN_SKILLS = {
   "core.research-synthesis": {
@@ -20,6 +22,7 @@ export async function runSkill(input: {
   prompt?: string;
 }): Promise<AgentRunResult> {
   const skill = BUILT_IN_SKILLS[input.skillId];
+  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
   await writeAuditLog({
     workspaceId: input.workspaceId,
     actorUserId: input.userId,

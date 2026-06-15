@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
 import { writeWorkspaceTextFile } from "@/server/workspaces/files";
+import { workspaceRouteErrorResponse } from "../../../../route-errors";
 
 export async function POST(request: Request, context: { params: Promise<{ workspaceId: string; fileId: string }> }) {
   try {
@@ -16,6 +17,6 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
     });
     return NextResponse.json({ versionId: version.id, versionNumber: version.versionNumber });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Save failed." }, { status: 400 });
+    return workspaceRouteErrorResponse(error, "Save failed.", 400);
   }
 }

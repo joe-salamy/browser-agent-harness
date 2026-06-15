@@ -1,5 +1,20 @@
 type ZipEntry = { path: string; bytes: Buffer };
 
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+const WINDOWS_DRIVE_SEGMENT_PATTERN = /^[A-Za-z]:/;
+
+function assertSafeZipEntryPath(entryPath: string): void {
+  if (entryPath.length === 0 || entryPath.length > 512 || CONTROL_CHAR_PATTERN.test(entryPath)) {
+    throw new Error("Invalid ZIP entry path.");
+  }
+  const unsafeSegment = entryPath.split("/").some((segment) => {
+    return segment.length === 0 || segment === "." || segment === ".." || WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment);
+  });
+  if (entryPath.startsWith("/") || entryPath.includes("\\") || unsafeSegment) {
+    throw new Error("Unsafe ZIP entry path.");
+  }
+}
+
 const CRC_TABLE = new Uint32Array(256);
 for (let i = 0; i < 256; i += 1) {
   let c = i;
@@ -32,6 +47,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
   let offset = 0;
 
   for (const entry of entries) {
+    assertSafeZipEntryPath(entry.path);
     const name = Buffer.from(entry.path, "utf8");
     const crc = crc32(entry.bytes);
     const local = Buffer.alloc(30);

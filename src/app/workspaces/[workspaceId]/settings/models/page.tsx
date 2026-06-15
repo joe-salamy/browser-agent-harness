@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserId } from "@/lib/auth";
 import { listModelCredentials } from "@/server/models/credentials";
 import { saveModelCredentialAction, revokeModelCredentialAction } from "../../../actions";
+import { requireWorkspaceOwner } from "../require-owner";
 
 type Props = { params: Promise<{ workspaceId: string }> };
 
@@ -10,6 +11,7 @@ export default async function ModelSettingsPage({ params }: Props) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/sign-in");
   const { workspaceId } = await params;
+  await requireWorkspaceOwner(userId, workspaceId);
   const credentials = await listModelCredentials(userId, workspaceId);
 
   return (

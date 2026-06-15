@@ -30,7 +30,6 @@ services:
       /bin/sh -c "
       until mc alias set local http://minio:9000 minio minio_dev_password; do sleep 1; done;
       mc mb --ignore-existing local/workspace-files;
-      mc anonymous set download local/workspace-files;
       "
 
 volumes:

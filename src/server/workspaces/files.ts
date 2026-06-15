@@ -19,6 +19,10 @@ const TEXT_EXTENSIONS: Record<string, true> = {
   ".json": true,
   ".csv": true,
 };
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+const WINDOWS_DRIVE_SEGMENT_PATTERN = /^[A-Za-z]:/;
+const CONTENT_TYPE_PATTERN =
+  /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*(?:\s*;\s*[a-z0-9][a-z0-9!#$&^_.+-]*=[a-z0-9!#$&^_.+-]+)*$/;
 
 export class UnsupportedTextFileError extends Error {
   constructor() {
@@ -31,10 +35,10 @@ export type WorkspaceFileWithCurrentVersion = WorkspaceFile & { currentVersion: 
 
 export function normalizeWorkspacePath(inputPath: string): string {
   const raw = inputPath.trim().replaceAll("\\", "/");
-  if (raw.length === 0 || raw.length > 512 || raw.includes("\0")) {
+  if (raw.length === 0 || raw.length > 512 || CONTROL_CHAR_PATTERN.test(raw)) {
     throw new Error("Invalid workspace file path.");
   }
-  if (raw.startsWith("/") || /^[A-Za-z]:\//.test(raw)) {
+  if (raw.startsWith("/") || raw.split("/").some((segment) => WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment))) {
     throw new Error("Workspace file path must be relative.");
   }
   if (raw.split("/").includes("..")) {
@@ -45,6 +49,17 @@ export function normalizeWorkspacePath(inputPath: string): string {
     throw new Error("Workspace file path cannot traverse directories.");
   }
   return normalized;
+}
+
+export function normalizeContentType(inputContentType: string): string {
+  const contentType = inputContentType.trim().toLowerCase();
+  if (!contentType || contentType.length > 255 || CONTROL_CHAR_PATTERN.test(contentType)) {
+    throw new Error("Invalid content type.");
+  }
+  if (!CONTENT_TYPE_PATTERN.test(contentType)) {
+    throw new Error("Invalid content type.");
+  }
+  return contentType;
 }
 
 export function isCoreReadableText(pathValue: string, contentType: string): boolean {
@@ -117,6 +132,7 @@ export async function createWorkspaceFile(input: {
 }): Promise<WorkspaceFile> {
   await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
   const normalizedPath = normalizeWorkspacePath(input.path);
+  const contentType = normalizeContentType(input.contentType);
   const existing = await prisma.workspaceFile.findFirst({
     where: { workspaceId: input.workspaceId, path: normalizedPath, deletedAt: null },
     select: { id: true },
@@ -127,39 +143,50 @@ export async function createWorkspaceFile(input: {
   const versionId = crypto.randomUUID();
   const objectKey = `workspaces/${input.workspaceId}/files/${fileId}/versions/${versionId}`;
   const sha256 = crypto.createHash("sha256").update(input.bytes).digest("hex");
-  await getObjectStore().putObject({ key: objectKey, body: input.bytes, contentType: input.contentType });
+  const objectStore = getObjectStore();
+  await objectStore.putObject({ key: objectKey, body: input.bytes, contentType });
 
-  const file = await prisma.$transaction(async (tx) => {
-    await tx.workspaceFile.create({
-      data: {
-        id: fileId,
-        workspaceId: input.workspaceId,
-        path: normalizedPath,
-        name: path.posix.basename(normalizedPath),
-        contentType: input.contentType,
-        sizeBytes: input.bytes.length,
-        createdById: input.userId,
-      },
+  let file: WorkspaceFile;
+  try {
+    file = await prisma.$transaction(async (tx) => {
+      await tx.workspaceFile.create({
+        data: {
+          id: fileId,
+          workspaceId: input.workspaceId,
+          path: normalizedPath,
+          name: path.posix.basename(normalizedPath),
+          contentType,
+          sizeBytes: input.bytes.length,
+          createdById: input.userId,
+        },
+      });
+      await tx.workspaceFileVersion.create({
+        data: {
+          id: versionId,
+          fileId,
+          workspaceId: input.workspaceId,
+          versionNumber: 1,
+          objectKey,
+          sha256,
+          sizeBytes: input.bytes.length,
+          contentType,
+          createdById: input.userId,
+          createdByRunId: input.createdByRunId,
+        },
+      });
+      return tx.workspaceFile.update({
+        where: { id: fileId },
+        data: { currentVersionId: versionId },
+      });
     });
-    await tx.workspaceFileVersion.create({
-      data: {
-        id: versionId,
-        fileId,
-        workspaceId: input.workspaceId,
-        versionNumber: 1,
-        objectKey,
-        sha256,
-        sizeBytes: input.bytes.length,
-        contentType: input.contentType,
-        createdById: input.userId,
-        createdByRunId: input.createdByRunId,
-      },
-    });
-    return tx.workspaceFile.update({
-      where: { id: fileId },
-      data: { currentVersionId: versionId },
-    });
-  });
+  } catch (error) {
+    try {
+      await objectStore.deleteObject({ key: objectKey });
+    } catch {
+      // Keep the original database error; the orphan can be reclaimed by storage maintenance.
+    }
+    throw error;
+  }
 
   await writeAuditLog({
     workspaceId: input.workspaceId,
@@ -169,7 +196,7 @@ export async function createWorkspaceFile(input: {
     targetType: "file",
     targetId: file.id,
     summary: `Created ${normalizedPath}.`,
-    metadata: { path: normalizedPath, contentType: input.contentType, sizeBytes: input.bytes.length },
+    metadata: { path: normalizedPath, contentType, sizeBytes: input.bytes.length },
   });
   return file;
 }
@@ -188,7 +215,7 @@ export async function writeWorkspaceTextFile(input: {
     include: { currentVersion: true, versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
   });
   if (!file?.currentVersion) throw new Error("File not found.");
-  const contentType = input.contentType ?? file.contentType;
+  const contentType = normalizeContentType(input.contentType ?? file.contentType);
   if (!isCoreReadableText(file.path, contentType)) throw new UnsupportedTextFileError();
 
   const bytes = Buffer.from(input.text, "utf8");
@@ -196,30 +223,41 @@ export async function writeWorkspaceTextFile(input: {
   const versionNumber = (file.versions[0]?.versionNumber ?? 0) + 1;
   const objectKey = `workspaces/${input.workspaceId}/files/${file.id}/versions/${versionId}`;
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-  await getObjectStore().putObject({ key: objectKey, body: bytes, contentType });
+  const objectStore = getObjectStore();
+  await objectStore.putObject({ key: objectKey, body: bytes, contentType });
 
-  const version = await prisma.$transaction(async (tx) => {
-    const created = await tx.workspaceFileVersion.create({
-      data: {
-        id: versionId,
-        fileId: file.id,
-        workspaceId: input.workspaceId,
-        versionNumber,
-        objectKey,
-        sha256,
-        sizeBytes: bytes.length,
-        contentType,
-        createdById: input.userId,
-        createdByRunId: input.createdByRunId,
-        previousVersionId: file.currentVersionId,
-      },
+  let version: WorkspaceFileVersion;
+  try {
+    version = await prisma.$transaction(async (tx) => {
+      const created = await tx.workspaceFileVersion.create({
+        data: {
+          id: versionId,
+          fileId: file.id,
+          workspaceId: input.workspaceId,
+          versionNumber,
+          objectKey,
+          sha256,
+          sizeBytes: bytes.length,
+          contentType,
+          createdById: input.userId,
+          createdByRunId: input.createdByRunId,
+          previousVersionId: file.currentVersionId,
+        },
+      });
+      await tx.workspaceFile.update({
+        where: { id: file.id },
+        data: { currentVersionId: versionId, sizeBytes: bytes.length, contentType },
+      });
+      return created;
     });
-    await tx.workspaceFile.update({
-      where: { id: file.id },
-      data: { currentVersionId: versionId, sizeBytes: bytes.length, contentType },
-    });
-    return created;
-  });
+  } catch (error) {
+    try {
+      await objectStore.deleteObject({ key: objectKey });
+    } catch {
+      // Keep the original database error; the orphan can be reclaimed by storage maintenance.
+    }
+    throw error;
+  }
 
   await writeAuditLog({
     workspaceId: input.workspaceId,

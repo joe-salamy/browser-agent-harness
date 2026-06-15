@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
+import { WorkspaceRole } from "@prisma/client";
 import { requireUserId } from "@/lib/auth";
 import { runSkill, type BuiltInSkillId, BUILT_IN_SKILLS } from "@/server/skills/registry";
+import { assertWorkspaceAccess } from "@/server/workspaces/access";
+import { workspaceRouteErrorResponse } from "../../../route-errors";
 
 export async function POST(request: Request, context: { params: Promise<{ workspaceId: string; skillId: string }> }) {
   try {
     const userId = await requireUserId();
     const { workspaceId, skillId } = await context.params;
     if (!(skillId in BUILT_IN_SKILLS)) return NextResponse.json({ error: "Unknown skill." }, { status: 404 });
+    await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.EDITOR);
     const formData = await request.formData();
     const result = await runSkill({
       userId,
@@ -16,6 +20,6 @@ export async function POST(request: Request, context: { params: Promise<{ worksp
     });
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Skill run failed." }, { status: 400 });
+    return workspaceRouteErrorResponse(error, "Skill run failed.", 400);
   }
 }

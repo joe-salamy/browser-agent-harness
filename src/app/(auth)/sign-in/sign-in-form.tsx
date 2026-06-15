@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getSafeSignInCallbackUrl } from "./callback-url";
 
 export function SignInForm() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function SignInForm() {
             setError("Invalid email or password.");
             return;
           }
-          router.push(searchParams.get("callbackUrl") ?? "/workspaces");
+          router.push(getSafeSignInCallbackUrl(searchParams.get("callbackUrl")));
           router.refresh();
         });
       }}
@@ -40,7 +41,7 @@ export function SignInForm() {
         Password
         <input className="input" name="password" type="password" defaultValue="demo-password" required />
       </label>
-      {error ? <p style={{ color: "#b91c1c" }}>{error}</p> : null}
+      {error ? <p role="alert" style={{ color: "#b91c1c" }}>{error}</p> : null}
       <button className="btn" type="submit" disabled={isPending}>{isPending ? "Signing in..." : "Sign in"}</button>
     </form>
   );
