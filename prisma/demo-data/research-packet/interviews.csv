@@ -1,0 +1,4 @@
+participant,role,note
+A,Research lead,"Needs shared file context and audit logs."
+B,Operations owner,"Wants exports with both source files and outputs."
+C,Product manager,"Prefers model choice through OpenRouter."

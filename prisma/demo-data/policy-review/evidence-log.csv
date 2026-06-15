@@ -1,0 +1,4 @@
+control,evidence,status
+Workspace access,Membership checks on every service,implemented
+Secrets,AES-256-GCM helper,implemented
+Audit,Secret-field rejection helper,implemented

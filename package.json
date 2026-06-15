@@ -1,0 +1,59 @@
+{
+  "name": "browser-agent-harness",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "demo:seed": "prisma migrate dev --name init && prisma db seed"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "latest",
+    "@aws-sdk/client-s3": "latest",
+    "@aws-sdk/s3-request-presigner": "latest",
+    "@prisma/client": "^6.16.3",
+    "bcryptjs": "latest",
+    "clsx": "latest",
+    "lucide-react": "latest",
+    "nanoid": "latest",
+    "next": "latest",
+    "next-auth": "latest",
+    "openai": "latest",
+    "prisma": "^6.16.3",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwind-merge": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/bcryptjs": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "dotenv-cli": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "jsdom": "latest",
+    "playwright": "latest",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

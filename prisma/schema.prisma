@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ModelProvider {
+  OPENROUTER
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum McpTransport {
+  HTTP_SSE
+  STDIO_DEV
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  passwordHash   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  authenticators  Authenticator[]
+  ownedWorkspaces Workspace[]              @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  filesCreated    WorkspaceFile[]          @relation("WorkspaceFileCreator")
+  versionsCreated WorkspaceFileVersion[]   @relation("WorkspaceFileVersionCreator")
+  credentials     ModelCredential[]
+  agentRuns       AgentRun[]
+  auditLogs       AuditLog[]
+  mcpConnections  McpConnection[]          @relation("McpConnectionCreator")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Workspace {
+  id           String   @id @default(cuid())
+  ownerId      String
+  name         String
+  instructions String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner          User                   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members        WorkspaceMember[]
+  files          WorkspaceFile[]
+  fileVersions   WorkspaceFileVersion[]
+  credentials    ModelCredential[]
+  agentRuns      AgentRun[]
+  auditLogs      AuditLog[]
+  mcpConnections McpConnection[]
+  mcpPermissions McpPermission[]
+  skills         SkillDefinition[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model WorkspaceFile {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  path             String
+  name             String
+  contentType      String
+  sizeBytes        Int
+  currentVersionId String?   @unique
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User                    @relation("WorkspaceFileCreator", fields: [createdById], references: [id])
+  versions       WorkspaceFileVersion[]  @relation("FileVersions")
+  currentVersion WorkspaceFileVersion?   @relation("CurrentFileVersion", fields: [currentVersionId], references: [id])
+  agentRunOutput AgentRun?               @relation("AgentRunOutput")
+
+  @@unique([workspaceId, path, deletedAt])
+  @@index([workspaceId])
+}
+
+model WorkspaceFileVersion {
+  id                String   @id @default(cuid())
+  fileId            String
+  workspaceId       String
+  versionNumber     Int
+  objectKey         String
+  sha256            String
+  sizeBytes         Int
+  contentType       String
+  createdById       String
+  createdByRunId    String?
+  previousVersionId String?
+  createdAt         DateTime @default(now())
+
+  file            WorkspaceFile           @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
+  currentForFile  WorkspaceFile?          @relation("CurrentFileVersion")
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy       User                    @relation("WorkspaceFileVersionCreator", fields: [createdById], references: [id])
+  createdByRun    AgentRun?               @relation("RunCreatedFileVersions", fields: [createdByRunId], references: [id])
+  previousVersion WorkspaceFileVersion?   @relation("PreviousFileVersion", fields: [previousVersionId], references: [id])
+  nextVersions    WorkspaceFileVersion[]  @relation("PreviousFileVersion")
+
+  @@unique([fileId, versionNumber])
+  @@index([workspaceId])
+  @@index([createdByRunId])
+}
+
+model ModelCredential {
+  id               String        @id @default(cuid())
+  ownerId          String
+  workspaceId      String
+  provider         ModelProvider
+  label            String
+  encryptedSecret  String
+  secretNonce      String
+  secretKeyVersion String
+  isDefault        Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  revokedAt        DateTime?
+
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, provider, isDefault])
+  @@index([ownerId])
+}
+
+model AgentRun {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  createdById   String
+  status        AgentRunStatus
+  prompt        String
+  modelProvider ModelProvider?
+  modelName     String?
+  outputFileId  String?        @unique
+  startedAt     DateTime       @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  errorMessage  String?
+
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy       User                    @relation(fields: [createdById], references: [id])
+  outputFile      WorkspaceFile?          @relation("AgentRunOutput", fields: [outputFileId], references: [id])
+  createdVersions WorkspaceFileVersion[]  @relation("RunCreatedFileVersions")
+  auditLogs       AuditLog[]
+
+  @@index([workspaceId, startedAt])
+  @@index([createdById])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  actorUserId  String?
+  agentRunId   String?
+  eventType    String
+  targetType   String?
+  targetId     String?
+  summary      String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?     @relation(fields: [actorUserId], references: [id])
+  agentRun  AgentRun? @relation(fields: [agentRunId], references: [id])
+
+  @@index([workspaceId, createdAt])
+  @@index([agentRunId])
+}
+
+model McpConnection {
+  id          String       @id @default(cuid())
+  workspaceId String
+  name        String
+  transport   McpTransport
+  url         String?
+  enabled     Boolean      @default(true)
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User            @relation("McpConnectionCreator", fields: [createdById], references: [id])
+  permissions McpPermission[]
+
+  @@index([workspaceId])
+}
+
+model McpPermission {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  connectionId String
+  toolName     String
+  allowed      Boolean
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, toolName])
+  @@index([workspaceId])
+}
+
+model SkillDefinition {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String
+  entrypoint  String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
