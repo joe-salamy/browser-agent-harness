@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { WorkspaceRole } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/log";
-import { runSkill } from "@/server/skills/registry";
+import { listAvailableSkills, runSkill } from "@/server/skills/registry";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 import {
   createWorkspaceFile,
@@ -10,7 +10,6 @@ import {
   writeWorkspaceTextFile,
 } from "@/server/workspaces/files";
 import {
-  EXECUTABLE_CHAIN_SKILL_IDS,
   SKILL_CHAIN_STATE_VERSION,
   type SkillChainManifest,
   type SkillChainState,
@@ -31,6 +30,7 @@ export type RunSkillChainInput = {
   model?: string;
   resumeStatePath?: string;
   executeStep?: SkillChainStepExecutor;
+  allowScripts?: boolean;
 };
 
 export type SkillChainRunResult = {
@@ -47,10 +47,11 @@ export type SkillChainRunResult = {
 export type SkillChainStepExecutionInput = {
   userId: string;
   workspaceId: string;
-  skillId: (typeof EXECUTABLE_CHAIN_SKILL_IDS)[number];
+  skillId: string;
   prompt: string;
   model?: string;
   outputPath: string;
+  allowScripts?: boolean;
   stepId: string;
   stepIndex: number;
   runId: string;
@@ -122,17 +123,9 @@ function parseSkillChainState(value: unknown): SkillChainState {
     ) {
       throw new Error("Invalid skill chain step state status.");
     }
-    const skillId = requireString(stepValue.skillId, "steps.skillId");
-    if (
-      !EXECUTABLE_CHAIN_SKILL_IDS.includes(
-        skillId as (typeof EXECUTABLE_CHAIN_SKILL_IDS)[number],
-      )
-    ) {
-      throw new Error("Invalid skill chain step skill id.");
-    }
     return {
       id: requireString(stepValue.id, "steps.id"),
-      skillId: skillId as (typeof EXECUTABLE_CHAIN_SKILL_IDS)[number],
+      skillId: requireString(stepValue.skillId, "steps.skillId"),
       prompt: requireString(stepValue.prompt, "steps.prompt"),
       outputPath: requireString(stepValue.outputPath, "steps.outputPath"),
       status: stepStatus,
@@ -270,6 +263,7 @@ async function defaultExecuteStep(
     prompt: input.prompt,
     model: input.model,
     outputPath: input.outputPath,
+    allowScripts: input.allowScripts,
   });
   if (
     result.status === "SUCCEEDED" &&
@@ -313,6 +307,27 @@ async function persistState(input: {
     text,
     contentType: "application/json",
   });
+}
+
+export async function validateManifestSkills(input: {
+  userId: string;
+  workspaceId: string;
+  manifest: SkillChainManifest;
+}): Promise<void> {
+  const availableSkills = await listAvailableSkills({
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+  });
+  const runnableById = new Map(
+    availableSkills.map((skill) => [skill.id, skill.chainRunnable]),
+  );
+  for (const step of input.manifest.steps) {
+    if (runnableById.get(step.skillId) !== true) {
+      throw new Error(
+        `Skill chain step ${step.id} references unavailable skill ${step.skillId}.`,
+      );
+    }
+  }
 }
 
 async function precheckMissing(input: {
@@ -396,6 +411,11 @@ async function setupNewRun(input: RunSkillChainInput): Promise<ResolvedSetup> {
   const initialInput = input.initialInput?.trim();
   if (!initialInput) throw new Error("Initial input is required.");
   const { manifest } = await loadManifestFromInput(input);
+  await validateManifestSkills({
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+    manifest,
+  });
   const runId = `${manifest.id}-${new Date()
     .toISOString()
     .replace(/[-:.TZ]/g, "")
@@ -522,6 +542,11 @@ async function loadCopiedManifest(
   const manifest = parseManifestText(text);
   if (manifest.id !== state.manifestId)
     throw new Error("Skill chain state manifest mismatch.");
+  await validateManifestSkills({
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+    manifest,
+  });
   return manifest;
 }
 
@@ -634,6 +659,7 @@ export async function runSkillChain(
         }),
         model: input.model,
         outputPath,
+        allowScripts: input.allowScripts,
         stepId: step.id,
         stepIndex: index,
         runId: state.runId,

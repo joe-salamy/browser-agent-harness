@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/auth";
 import { listAuditLogs } from "@/server/audit/log";
+import { listAvailableSkills } from "@/server/skills/registry";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 import {
   isCoreReadableText,
@@ -32,6 +33,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
     WorkspaceRole.VIEWER,
   );
   const files = await listWorkspaceFiles(userId, workspaceId);
+  const skills = await listAvailableSkills({ userId, workspaceId });
   const logs = await listAuditLogs(userId, workspaceId);
   const selectedFileId = query.fileId ?? files[0]?.id;
   let selected: {
@@ -134,7 +136,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
 
         <section className="card">
           <h2>Run</h2>
-          <RunForm workspaceId={workspaceId} />
+          <RunForm workspaceId={workspaceId} skills={skills} />
         </section>
       </div>
 

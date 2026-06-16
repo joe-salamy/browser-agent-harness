@@ -13,9 +13,10 @@ type SkillChainRunBody = {
   initialInput?: string;
   model?: string;
   resumeStatePath?: string;
+  allowScripts?: boolean;
 };
 
-type SkillChainStringField = Exclude<keyof SkillChainRunBody, "manifest">;
+type SkillChainStringField = Exclude<keyof SkillChainRunBody, "manifest" | "allowScripts">;
 
 function optionalStringField(
   record: Record<string, unknown>,
@@ -26,6 +27,16 @@ function optionalStringField(
   if (typeof value !== "string") throw new Error("Invalid request body.");
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+function optionalBooleanField(
+  record: Record<string, unknown>,
+  field: "allowScripts",
+): boolean | undefined {
+  if (!(field in record)) return undefined;
+  const value = record[field];
+  if (typeof value !== "boolean") throw new Error("Invalid request body.");
+  return value;
 }
 
 function parseBody(value: unknown): SkillChainRunBody {
@@ -39,6 +50,7 @@ function parseBody(value: unknown): SkillChainRunBody {
     initialInput: optionalStringField(record, "initialInput"),
     model: optionalStringField(record, "model"),
     resumeStatePath: optionalStringField(record, "resumeStatePath"),
+    allowScripts: optionalBooleanField(record, "allowScripts"),
   };
 }
 
@@ -60,6 +72,7 @@ export async function POST(
       initialInput: body.initialInput,
       model: body.model,
       resumeStatePath: body.resumeStatePath,
+      allowScripts: body.allowScripts,
     });
     return NextResponse.json(result);
   } catch (error) {

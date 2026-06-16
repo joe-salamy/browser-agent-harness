@@ -62,6 +62,24 @@ export class S3ObjectStore implements ObjectStore {
     return streamToBuffer(response.Body);
   }
 
+  async getObjectRange(input: {
+    key: string;
+    start: number;
+    endInclusive: number;
+  }): Promise<Buffer> {
+    if (input.start < 0 || input.endInclusive < input.start) {
+      return Buffer.alloc(0);
+    }
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        Range: `bytes=${input.start}-${input.endInclusive}`,
+      }),
+    );
+    return streamToBuffer(response.Body);
+  }
+
   async deleteObject(input: { key: string }): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: input.key }),

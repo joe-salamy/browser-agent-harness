@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  EXECUTABLE_CHAIN_SKILL_IDS,
   extractJsonObjectText,
   parseSkillChainManifest,
   renderSkillChainOutputPath,
@@ -12,11 +11,10 @@ const validManifest = {
   name: "Research Plan Implementation",
   steps: [
     {
-      id: "market-research",
+      id: "summarize",
       skillId: "core.research-synthesis",
-      prompt: "Research the idea.",
-      outputPath:
-        "chains/research-plan-implementation/{{runId}}/{{stepIndex}}-market-research.md",
+      prompt: "Summarize the sources.",
+      outputPath: "chains/{{runId}}/{{stepIndex}}-{{stepId}}.md",
     },
   ],
 };
@@ -24,38 +22,53 @@ const validManifest = {
 describe("skill chain manifest validation", () => {
   it("accepts a valid builder-style manifest", () => {
     expect(parseSkillChainManifest(validManifest).steps[0]?.skillId).toBe(
-      EXECUTABLE_CHAIN_SKILL_IDS[0],
+      "core.research-synthesis",
     );
   });
 
-  it("accepts web search grounding as an executable step", () => {
-    expect(
-      parseSkillChainManifest({
-        ...validManifest,
-        steps: [
-          { ...validManifest.steps[0], skillId: "core.web-search-grounding" },
-        ],
-      }).steps[0]?.skillId,
-    ).toBe("core.web-search-grounding");
+  it("accepts syntactically valid dynamic directory skill ids", () => {
+    const manifest = {
+      ...validManifest,
+      steps: [
+        { ...validManifest.steps[0], skillId: "workspace.my-skill" },
+        {
+          id: "server-step",
+          skillId: "server.other-skill",
+          prompt: "Run server skill.",
+          outputPath: "chains/{{runId}}/02-server-step.md",
+        },
+      ],
+    };
+
+    expect(parseSkillChainManifest(manifest).steps.map((step) => step.skillId)).toEqual([
+      "workspace.my-skill",
+      "server.other-skill",
+    ]);
   });
 
-  it("rejects chain builder as an executable step", () => {
+  it("rejects syntactically invalid skill ids", () => {
     expect(() =>
       parseSkillChainManifest({
         ...validManifest,
-        steps: [{ ...validManifest.steps[0], skillId: "core.chain-builder" }],
+        steps: [{ ...validManifest.steps[0], skillId: "toString" }],
       }),
     ).toThrow("Invalid skill chain manifest.");
+  });
+
+  it("allows core.chain-builder at schema level for runner and builder validation", () => {
+    expect(
+      parseSkillChainManifest({
+        ...validManifest,
+        steps: [{ ...validManifest.steps[0], skillId: "core.chain-builder" }],
+      }).steps[0]?.skillId,
+    ).toBe("core.chain-builder");
   });
 
   it("rejects duplicate step ids", () => {
     expect(() =>
       parseSkillChainManifest({
         ...validManifest,
-        steps: [
-          validManifest.steps[0],
-          { ...validManifest.steps[0], prompt: "Research again." },
-        ],
+        steps: [validManifest.steps[0], { ...validManifest.steps[0] }],
       }),
     ).toThrow("Invalid skill chain manifest.");
   });
@@ -64,7 +77,9 @@ describe("skill chain manifest validation", () => {
     expect(() =>
       parseSkillChainManifest({
         ...validManifest,
-        steps: [{ ...validManifest.steps[0], outputPath: "../escape.md" }],
+        steps: [
+          { ...validManifest.steps[0], outputPath: "../bad/{{runId}}.md" },
+        ],
       }),
     ).toThrow("Invalid skill chain manifest.");
   });
@@ -76,7 +91,7 @@ describe("skill chain manifest validation", () => {
         steps: [
           {
             ...validManifest.steps[0],
-            outputPath: "chains/example/{{runId}}/{{constructor}}.md",
+            outputPath: "chains/{{runId}}/{{toString}}.md",
           },
         ],
       }),
@@ -86,34 +101,29 @@ describe("skill chain manifest validation", () => {
   it("rejects unknown output path template tokens", () => {
     expect(() =>
       renderSkillChainOutputPath({
-        template: "chains/example/{{runId}}/{{constructor}}.md",
+        template: "chains/{{runId}}/{{unknown}}.md",
         runId: "run-1",
-        stepId: "market-research",
+        stepId: "step-1",
         stepIndex: 0,
       }),
-    ).toThrow(
-      "Unsupported template token in outputPath for step market-research.",
-    );
+    ).toThrow("Unsupported template token in outputPath for step step-1.");
   });
 });
 
 describe("chain builder JSON extraction", () => {
   it("accepts exact JSON object text", () => {
-    expect(extractJsonObjectText(JSON.stringify(validManifest))).toBe(
-      JSON.stringify(validManifest),
-    );
+    expect(extractJsonObjectText('{"version":1}')).toBe('{"version":1}');
   });
 
   it("accepts one json fenced block", () => {
-    const json = JSON.stringify(validManifest, null, 2);
-    expect(extractJsonObjectText("```json\n" + json + "\n```")).toBe(json);
+    expect(extractJsonObjectText('```json\n{"version":1}\n```')).toBe(
+      '{"version":1}',
+    );
   });
 
   it("rejects prose around JSON", () => {
-    expect(() =>
-      extractJsonObjectText(
-        `Here is the manifest:\n${JSON.stringify(validManifest)}`,
-      ),
-    ).toThrow("Expected a single JSON object.");
+    expect(() => extractJsonObjectText('Here is JSON: {"version":1}')).toThrow(
+      "Expected a single JSON object.",
+    );
   });
 });

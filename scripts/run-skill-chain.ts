@@ -20,6 +20,7 @@ type ParsedArgs = {
   userEmail?: string;
   model?: string;
   dryRun: boolean;
+  allowScripts: boolean;
 };
 
 function shellQuote(value: string): string {
@@ -28,7 +29,10 @@ function shellQuote(value: string): string {
     : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-function formatSkillChainCommand(args: Record<string, string>): string {
+function formatSkillChainCommand(
+  args: Record<string, string>,
+  flags: string[] = [],
+): string {
   return [
     "npm",
     "run",
@@ -38,15 +42,28 @@ function formatSkillChainCommand(args: Record<string, string>): string {
       `--${name}`,
       shellQuote(value),
     ]),
+    ...flags.map((name) => `--${name}`),
   ].join(" ");
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  const args: ParsedArgs = { dryRun: false };
+  const args: ParsedArgs = { dryRun: false, allowScripts: false };
+  const valueArgs = new Set<string>();
+  function setValue(field: Exclude<keyof ParsedArgs, "dryRun" | "allowScripts">, value: string): void {
+    if (valueArgs.has(field)) throw new Error(`Duplicate argument --${field}.`);
+    valueArgs.add(field);
+    args[field] = value;
+  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--dry-run") {
+      if (args.dryRun) throw new Error("Duplicate argument --dry-run.");
       args.dryRun = true;
+      continue;
+    }
+    if (arg === "--allow-scripts") {
+      if (args.allowScripts) throw new Error("Duplicate argument --allow-scripts.");
+      args.allowScripts = true;
       continue;
     }
     const value = argv[index + 1];
@@ -55,34 +72,34 @@ function parseArgs(argv: string[]): ParsedArgs {
     index += 1;
     switch (arg) {
       case "--manifest":
-        args.manifest = value;
+        setValue("manifest", value);
         break;
       case "--manifest-workspace-path":
-        args.manifestWorkspacePath = value;
+        setValue("manifestWorkspacePath", value);
         break;
       case "--manifest-file-id":
-        args.manifestFileId = value;
+        setValue("manifestFileId", value);
         break;
       case "--input":
-        args.input = value;
+        setValue("input", value);
         break;
       case "--input-file":
-        args.inputFile = value;
+        setValue("inputFile", value);
         break;
       case "--resume-state-path":
-        args.resumeStatePath = value;
+        setValue("resumeStatePath", value);
         break;
       case "--workspace-id":
-        args.workspaceId = value;
+        setValue("workspaceId", value);
         break;
       case "--workspace-name":
-        args.workspaceName = value;
+        setValue("workspaceName", value);
         break;
       case "--user-email":
-        args.userEmail = value;
+        setValue("userEmail", value);
         break;
       case "--model":
-        args.model = value;
+        setValue("model", value);
         break;
       default:
         throw new Error(`Unknown argument ${arg}.`);
@@ -168,6 +185,7 @@ async function main(): Promise<void> {
     console.log(`Workspace: ${resolved.workspaceId}`);
     console.log(`Mode: ${args.resumeStatePath ? "resume" : "new"}`);
     if (manifest) console.log(`Manifest: ${manifest.id}`);
+    if (args.allowScripts) console.log("Scripts: enabled");
     return;
   }
   const result = await runSkillChain({
@@ -179,6 +197,7 @@ async function main(): Promise<void> {
     initialInput,
     model: args.model,
     resumeStatePath: args.resumeStatePath,
+    allowScripts: args.allowScripts,
   });
   console.log(`Run: ${result.runId}`);
   console.log(`Status: ${result.status}`);
@@ -194,11 +213,14 @@ async function main(): Promise<void> {
   if (result.status === "FAILED" || result.status === "WAITING_FOR_INPUT") {
     if (result.errorMessage) console.log(`Error: ${result.errorMessage}`);
     console.log(
-      `Resume command: ${formatSkillChainCommand({
-        "resume-state-path": result.statePath,
-        "user-email": resolved.userEmail,
-        "workspace-id": resolved.workspaceId,
-      })}`,
+      `Resume command: ${formatSkillChainCommand(
+        {
+          "resume-state-path": result.statePath,
+          "user-email": resolved.userEmail,
+          "workspace-id": resolved.workspaceId,
+        },
+        args.allowScripts ? ["allow-scripts"] : [],
+      )}`,
     );
   }
 }

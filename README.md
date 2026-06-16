@@ -28,12 +28,24 @@ A browser-native foundation for building agent-powered knowledge-work products w
    | `OPENROUTER_API_KEY`        | Optional | Fallback model API key when a workspace credential is not configured.                         |
    | `OPENROUTER_ALLOWED_MODELS` | Optional | Comma-separated model ids allowed in addition to the default OpenRouter model.                |
    | `TAVILY_API_KEY`            | Optional | Enables web-search grounding skills.                                                          |
+   | `BROWSER_AGENT_SKILL_ROOTS` | Optional | Extra server-installed skill roots, split by the OS path delimiter.                           |
+   | `SKILL_SCRIPTS_ENABLED`     | Optional | Set to `true` to permit per-run directory skill entrypoint execution.                         |
+   | `BASH_BIN`                  | Optional | Shell executable used for `.sh` skill entrypoints; defaults to `bash`.                       |
+   | `PYTHON_BIN`                | Optional | Python executable used for `.py` skill entrypoints; defaults to `python`.                    |
    | `S3_ENDPOINT`               | Optional | Switches workspace file storage from local storage to S3-compatible storage at this endpoint. |
    | `S3_BUCKET`                 | Optional | S3 bucket name; defaults to `workspace-files`.                                                |
    | `S3_REGION`                 | Optional | S3 region; defaults to `us-east-1`.                                                           |
    | `S3_FORCE_PATH_STYLE`       | Optional | Use path-style S3 URLs when set to `true` or `1`.                                             |
    | `S3_ACCESS_KEY_ID`          | Optional | S3 access key; used only when paired with `S3_SECRET_ACCESS_KEY`.                             |
    | `S3_SECRET_ACCESS_KEY`      | Optional | S3 secret key; used only when paired with `S3_ACCESS_KEY_ID`.                                 |
+
+## Skills
+
+Directory skills live in `skills/<name>/SKILL.md` with optional `skills/<name>/references/...` and `skills/<name>/scripts/...` text assets. Server-installed skills are discovered from `skills/`, `.agents/skills/`, and each absolute directory in `BROWSER_AGENT_SKILL_ROOTS`.
+
+Skill IDs are source-prefixed: workspace-authored skills use `workspace.<name>` and server-installed skills use `server.<name>`. Built-in skills keep their `core.<name>` IDs.
+
+Entrypoint scripts are opt-in twice: deployment must set `SKILL_SCRIPTS_ENABLED=true`, and the individual run must set the allow-scripts checkbox, API field, or CLI flag. Supported entrypoint extensions are `.js`, `.sh`, and `.py`.
 
 4. Generate Prisma client and initialize the database:
 
@@ -124,13 +136,14 @@ Input sources:
 
 Common options:
 
-| Option                    | Required                                      | Meaning                                                     |
-| ------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
-| `--user-email <email>`    | Yes                                           | User that owns or can edit the target workspace.            |
-| `--workspace-id <id>`     | One of `--workspace-id` or `--workspace-name` | Target workspace by id.                                     |
-| `--workspace-name <name>` | One of `--workspace-id` or `--workspace-name` | Latest matching workspace for the user.                     |
-| `--model <model>`         | No                                            | Override the default model for the run.                     |
-| `--dry-run`               | No                                            | Validate inputs and print status without running the chain. |
+| Option                    | Required                                      | Meaning                                                          |
+| ------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| `--user-email <email>`    | Yes                                           | User that owns or can edit the target workspace.                 |
+| `--workspace-id <id>`     | One of `--workspace-id` or `--workspace-name` | Target workspace by id.                                          |
+| `--workspace-name <name>` | One of `--workspace-id` or `--workspace-name` | Latest matching workspace for the user.                          |
+| `--model <model>`         | No                                            | Override the default model for the run.                          |
+| `--allow-scripts`         | No                                            | Permit skill entrypoints when `SKILL_SCRIPTS_ENABLED=true`.      |
+| `--dry-run`               | No                                            | Validate inputs and print status without running the chain.      |
 
 Resume a waiting or failed run with the state path printed by the previous command:
 

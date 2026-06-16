@@ -1,36 +1,25 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  requireUserId: vi.fn(),
-  assertWorkspaceAccess: vi.fn(),
-  runSkill: vi.fn(),
-  WorkspaceAccessError: class WorkspaceAccessError extends Error {
-    constructor(message = "Forbidden") {
-      super(message);
-      this.name = "WorkspaceAccessError";
+const mocks = vi.hoisted(() => {
+  class UnknownSkillError extends Error {
+    constructor(skillId: string) {
+      super(`Unknown skill: ${skillId}.`);
+      this.name = "UnknownSkillError";
     }
-  },
-}));
+  }
+  return {
+    requireUserId: vi.fn(),
+    runSkill: vi.fn(),
+    UnknownSkillError,
+  };
+});
 
 vi.mock("@/lib/auth", () => ({
   requireUserId: mocks.requireUserId,
 }));
 
-vi.mock("@/server/workspaces/access", () => ({
-  assertWorkspaceAccess: mocks.assertWorkspaceAccess,
-  WorkspaceAccessError: mocks.WorkspaceAccessError,
-}));
-
 vi.mock("@/server/skills/registry", () => ({
-  BUILT_IN_SKILLS: {
-    "core.research-synthesis": {
-      id: "core.research-synthesis",
-      name: "Research Synthesis",
-      description:
-        "Synthesizes supported workspace text files into a sourced Markdown summary.",
-      requiredPermissions: ["files:read", "files:write", "models:generate"],
-    },
-  },
+  UnknownSkillError: mocks.UnknownSkillError,
   runSkill: mocks.runSkill,
 }));
 
@@ -39,7 +28,6 @@ import { POST } from "./route";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireUserId.mockResolvedValue("user-1");
-  mocks.assertWorkspaceAccess.mockResolvedValue({});
   mocks.runSkill.mockResolvedValue({ runId: "run-1", status: "SUCCEEDED" });
 });
 
@@ -52,27 +40,31 @@ function context(skillId: string) {
 }
 
 describe("workspace skill route", () => {
-  it("rejects inherited skill ids without access or run side effects", async () => {
+  it("maps registry unknown skill errors to 404", async () => {
+    mocks.runSkill.mockRejectedValueOnce(new mocks.UnknownSkillError("toString"));
     const response = await POST(
-      new Request("http://test.local", { method: "POST" }),
+      new Request("http://test", { method: "POST", body: new FormData() }),
       context("toString"),
     );
 
     expect(response.status).toBe(404);
-    await expect(errorBody(response)).resolves.toEqual({
-      error: "Unknown skill.",
-    });
-    expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
-    expect(mocks.runSkill).not.toHaveBeenCalled();
+    await expect(errorBody(response)).resolves.toEqual({ error: "Unknown skill." });
+    expect(mocks.runSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        skillId: "toString",
+      }),
+    );
   });
 
   it("rejects File-valued form fields without running the skill", async () => {
     const formData = new FormData();
-    formData.append("prompt", new Blob(["bad"]), "prompt.txt");
+    formData.set("prompt", new Blob(["bad"]), "bad.txt");
 
     const response = await POST(
-      new Request("http://test.local", { method: "POST", body: formData }),
-      context("core.research-synthesis"),
+      new Request("http://test", { method: "POST", body: formData }),
+      context("workspace.my-skill"),
     );
 
     expect(response.status).toBe(400);
@@ -82,25 +74,71 @@ describe("workspace skill route", () => {
     expect(mocks.runSkill).not.toHaveBeenCalled();
   });
 
-  it("trims optional string fields before dispatch", async () => {
+  it("rejects invalid allowScripts strings without running the skill", async () => {
     const formData = new FormData();
-    formData.set("prompt", "  Focus on risks.  ");
-    formData.set("model", "   ");
-    formData.set("outputPath", "  chains/run/01-research.md  ");
+    formData.set("allowScripts", "yes");
 
     const response = await POST(
-      new Request("http://test.local", { method: "POST", body: formData }),
-      context("core.research-synthesis"),
+      new Request("http://test", { method: "POST", body: formData }),
+      context("workspace.my-skill"),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill run failed.",
+    });
+    expect(mocks.runSkill).not.toHaveBeenCalled();
+  });
+
+  it("rejects whitespace-wrapped allowScripts strings without running the skill", async () => {
+    const formData = new FormData();
+    formData.set("allowScripts", " true ");
+
+    const response = await POST(
+      new Request("http://test", { method: "POST", body: formData }),
+      context("workspace.my-skill"),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill run failed.",
+    });
+    expect(mocks.runSkill).not.toHaveBeenCalled();
+  });
+
+  it("trims optional string fields and parses allowScripts before dispatch", async () => {
+    const formData = new FormData();
+    formData.set("prompt", "  summarize  ");
+    formData.set("model", "   ");
+    formData.set("outputPath", " outputs/result.md ");
+    formData.set("allowScripts", "on");
+
+    const response = await POST(
+      new Request("http://test", { method: "POST", body: formData }),
+      context("workspace.my-skill"),
     );
 
     expect(response.status).toBe(200);
     expect(mocks.runSkill).toHaveBeenCalledWith({
       userId: "user-1",
       workspaceId: "workspace-1",
-      skillId: "core.research-synthesis",
-      prompt: "Focus on risks.",
+      skillId: "workspace.my-skill",
+      prompt: "summarize",
       model: undefined,
-      outputPath: "chains/run/01-research.md",
+      outputPath: "outputs/result.md",
+      allowScripts: true,
     });
+  });
+
+  it("defaults missing allowScripts to false", async () => {
+    const response = await POST(
+      new Request("http://test", { method: "POST", body: new FormData() }),
+      context("core.research-synthesis"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.runSkill).toHaveBeenCalledWith(
+      expect.objectContaining({ allowScripts: false }),
+    );
   });
 });

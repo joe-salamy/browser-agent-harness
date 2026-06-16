@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
-import { WorkspaceRole } from "@prisma/client";
 import { requireUserId } from "@/lib/auth";
-import {
-  runSkill,
-  type BuiltInSkillId,
-  BUILT_IN_SKILLS,
-} from "@/server/skills/registry";
-import { assertWorkspaceAccess } from "@/server/workspaces/access";
+import { runSkill, UnknownSkillError } from "@/server/skills/registry";
 import { workspaceRouteErrorResponse } from "../../../route-errors";
-
-function isBuiltInSkillId(skillId: string): skillId is BuiltInSkillId {
-  return Object.prototype.hasOwnProperty.call(BUILT_IN_SKILLS, skillId);
-}
 
 function optionalFormDataString(
   formData: FormData,
@@ -24,6 +14,24 @@ function optionalFormDataString(
   return trimmed || undefined;
 }
 
+function optionalFormDataBoolean(formData: FormData, field: string): boolean {
+  const value = formData.get(field);
+  if (value === null) return false;
+  if (typeof value !== "string") throw new Error("Invalid request body.");
+  switch (value) {
+    case "true":
+    case "1":
+    case "on":
+      return true;
+    case "false":
+    case "0":
+    case "off":
+      return false;
+    default:
+      throw new Error("Invalid request body.");
+  }
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ workspaceId: string; skillId: string }> },
@@ -31,9 +39,6 @@ export async function POST(
   try {
     const userId = await requireUserId();
     const { workspaceId, skillId } = await context.params;
-    if (!isBuiltInSkillId(skillId))
-      return NextResponse.json({ error: "Unknown skill." }, { status: 404 });
-    await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.EDITOR);
     const formData = await request.formData();
     const result = await runSkill({
       userId,
@@ -42,9 +47,13 @@ export async function POST(
       prompt: optionalFormDataString(formData, "prompt") ?? "",
       model: optionalFormDataString(formData, "model"),
       outputPath: optionalFormDataString(formData, "outputPath"),
+      allowScripts: optionalFormDataBoolean(formData, "allowScripts"),
     });
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof UnknownSkillError) {
+      return NextResponse.json({ error: "Unknown skill." }, { status: 404 });
+    }
     return workspaceRouteErrorResponse(error, "Skill run failed.", 400);
   }
 }

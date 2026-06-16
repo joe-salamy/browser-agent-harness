@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, open, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import type { ObjectStore } from "@/server/storage/object-store";
 
@@ -36,6 +36,30 @@ export class LocalObjectStore implements ObjectStore {
 
   async getObject(input: { key: string }): Promise<Buffer> {
     return readFile(localPathForKey(input.key));
+  }
+
+  async getObjectRange(input: {
+    key: string;
+    start: number;
+    endInclusive: number;
+  }): Promise<Buffer> {
+    if (input.start < 0 || input.endInclusive < input.start) {
+      return Buffer.alloc(0);
+    }
+    const file = await open(localPathForKey(input.key), "r");
+    try {
+      const length = input.endInclusive - input.start + 1;
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await file.read(
+        buffer,
+        0,
+        length,
+        input.start,
+      );
+      return buffer.subarray(0, bytesRead);
+    } finally {
+      await file.close();
+    }
   }
 
   async deleteObject(input: { key: string }): Promise<void> {

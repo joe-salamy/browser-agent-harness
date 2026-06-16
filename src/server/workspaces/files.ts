@@ -16,12 +16,19 @@ const TEXT_CONTENT_TYPES: Record<string, true> = {
   "text/markdown": true,
   "application/json": true,
   "text/csv": true,
+  "text/javascript": true,
+  "application/javascript": true,
+  "text/x-shellscript": true,
+  "text/x-python": true,
 };
 const TEXT_EXTENSIONS: Record<string, true> = {
   ".txt": true,
   ".md": true,
   ".json": true,
   ".csv": true,
+  ".js": true,
+  ".sh": true,
+  ".py": true,
 };
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 const WINDOWS_DRIVE_SEGMENT_PATTERN = /^[A-Za-z]:/;
@@ -146,6 +153,42 @@ export async function readWorkspaceTextFile(
     key: file.currentVersion.objectKey,
   });
   return { file, text: bytes.toString("utf8") };
+}
+
+export async function readWorkspaceTextFileCapped(
+  userId: string,
+  workspaceId: string,
+  fileId: string,
+  maxBytes: number,
+): Promise<{ file: WorkspaceFile; text: string; truncated: boolean }> {
+  await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.VIEWER);
+  const file = await prisma.workspaceFile.findFirst({
+    where: { id: fileId, workspaceId, deletedAt: null },
+    include: { currentVersion: true },
+  });
+  if (!file?.currentVersion) throw new Error("File not found.");
+  if (!isCoreReadableText(file.path, file.contentType)) {
+    await writeAuditLog({
+      workspaceId,
+      actorUserId: userId,
+      eventType: "file.read.unsupported",
+      targetType: "file",
+      targetId: file.id,
+      summary: `Core text tools cannot read ${file.path}.`,
+      metadata: { path: file.path, contentType: file.contentType },
+    });
+    throw new UnsupportedTextFileError();
+  }
+
+  const cappedBytes = Math.max(0, maxBytes);
+  const bytes = await getObjectStore().getObjectRange({
+    key: file.currentVersion.objectKey,
+    start: 0,
+    endInclusive: cappedBytes,
+  });
+  const truncated = bytes.length > cappedBytes;
+  const textBytes = truncated ? bytes.subarray(0, cappedBytes) : bytes;
+  return { file, text: textBytes.toString("utf8"), truncated };
 }
 
 export async function getWorkspaceFileDownload(

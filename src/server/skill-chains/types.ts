@@ -3,10 +3,9 @@ import { z } from "zod";
 
 export const SKILL_CHAIN_MANIFEST_VERSION = 1 as const;
 export const SKILL_CHAIN_STATE_VERSION = 1 as const;
-export const EXECUTABLE_CHAIN_SKILL_IDS = [
-  "core.research-synthesis",
-  "core.web-search-grounding",
-] as const;
+export const skillIdSchema = z
+  .string()
+  .regex(/^(core|workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const CHAIN_AUTHORING_SKILL_ID = "core.chain-builder" as const;
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
@@ -100,7 +99,7 @@ const outputPathTemplateSchema = z
 
 export const SkillChainStepSchema = z.object({
   id: slugSchema,
-  skillId: z.enum(EXECUTABLE_CHAIN_SKILL_IDS),
+  skillId: skillIdSchema,
   prompt: z.string().trim().min(1).max(8000),
   outputPath: outputPathTemplateSchema,
 });
@@ -142,7 +141,7 @@ export type SkillChainStepStatus =
 
 export type SkillChainStepState = {
   id: string;
-  skillId: (typeof EXECUTABLE_CHAIN_SKILL_IDS)[number];
+  skillId: string;
   prompt: string;
   outputPath: string;
   status: SkillChainStepStatus;

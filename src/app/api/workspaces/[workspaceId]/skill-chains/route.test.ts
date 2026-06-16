@@ -81,6 +81,38 @@ describe("workspace skill-chain route", () => {
     expect(mocks.runSkillChain).not.toHaveBeenCalled();
   });
 
+  it("rejects non-boolean allowScripts without starting a chain", async () => {
+    const response = await POST(
+      new Request("http://test.local", {
+        method: "POST",
+        body: JSON.stringify({ allowScripts: "true" }),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill chain run failed.",
+    });
+    expect(mocks.runSkillChain).not.toHaveBeenCalled();
+  });
+
+  it("rejects null allowScripts without starting a chain", async () => {
+    const response = await POST(
+      new Request("http://test", {
+        method: "POST",
+        body: JSON.stringify({ allowScripts: null }),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill chain run failed.",
+    });
+    expect(mocks.runSkillChain).not.toHaveBeenCalled();
+  });
+
   it("trims blank optional fields before dispatch", async () => {
     const manifest = {
       version: 1,
@@ -104,6 +136,7 @@ describe("workspace skill-chain route", () => {
           manifestPath: "  ",
           initialInput: "  Evaluate this.  ",
           model: "  openai/test  ",
+          allowScripts: true,
         }),
       }),
       context,
@@ -119,6 +152,7 @@ describe("workspace skill-chain route", () => {
       initialInput: "Evaluate this.",
       model: "openai/test",
       resumeStatePath: undefined,
+      allowScripts: true,
     });
   });
 });

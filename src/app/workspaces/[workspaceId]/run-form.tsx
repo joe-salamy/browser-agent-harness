@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { SkillSummary } from "@/server/skills/directory";
 
 type RunResult = {
   runId: string;
@@ -9,7 +10,13 @@ type RunResult = {
   errorMessage?: string;
 };
 
-export function RunForm({ workspaceId }: { workspaceId: string }) {
+export function RunForm({
+  workspaceId,
+  skills,
+}: {
+  workspaceId: string;
+  skills: SkillSummary[];
+}) {
   const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -61,31 +68,75 @@ export function RunForm({ workspaceId }: { workspaceId: string }) {
       </form>
 
       <form
+        className="grid"
         onSubmit={(event) => {
           event.preventDefault();
-          const formData = new FormData(event.currentTarget);
+          const form = event.currentTarget;
+          const formData = new FormData(form);
+          const skillId = String(formData.get("skillId") ?? "");
+          if (!skillId) {
+            setError("Select a skill.");
+            return;
+          }
+          formData.delete("skillId");
           startTransition(
             () =>
               void submit(
-                `/api/workspaces/${workspaceId}/skills/core.research-synthesis`,
+                `/api/workspaces/${workspaceId}/skills/${encodeURIComponent(skillId)}`,
                 formData,
               ),
           );
         }}
       >
-        <input
-          className="input"
-          name="prompt"
-          placeholder="Optional skill focus"
-        />
+        <label>
+          Skill
+          <select className="input" name="skillId" required>
+            {skills.map((skill) => (
+              <option key={skill.id} value={skill.id}>
+                {skill.id} — {skill.description}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Prompt
+          <textarea
+            className="input"
+            name="prompt"
+            placeholder="Optional skill task"
+            rows={4}
+          />
+        </label>
+        <label>
+          Model
+          <input
+            className="input"
+            name="model"
+            defaultValue="openai/gpt-4.1-mini"
+          />
+        </label>
+        <label>
+          Output path
+          <input
+            className="input"
+            name="outputPath"
+            placeholder="Optional workspace output path"
+          />
+        </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input name="allowScripts" type="checkbox" />
+          Allow scripts for skills with entrypoints
+        </label>
         <button
           className="btn secondary"
           type="submit"
-          disabled={isPending}
-          style={{ marginTop: 8 }}
+          disabled={isPending || skills.length === 0}
         >
-          Run Research Synthesis skill
+          {isPending ? "Running..." : "Run selected skill"}
         </button>
+        {skills.length === 0 ? (
+          <p className="muted">No skills are available.</p>
+        ) : null}
       </form>
 
       {result ? (
