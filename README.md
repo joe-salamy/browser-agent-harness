@@ -39,14 +39,6 @@ A browser-native foundation for building agent-powered knowledge-work products w
    | `S3_ACCESS_KEY_ID`          | Optional | S3 access key; used only when paired with `S3_SECRET_ACCESS_KEY`.                             |
    | `S3_SECRET_ACCESS_KEY`      | Optional | S3 secret key; used only when paired with `S3_ACCESS_KEY_ID`.                                 |
 
-## Skills
-
-Directory skills live in `skills/<name>/SKILL.md` with optional `skills/<name>/references/...` and `skills/<name>/scripts/...` text assets. Server-installed skills are discovered from `skills/`, `.agents/skills/`, and each absolute directory in `BROWSER_AGENT_SKILL_ROOTS`.
-
-Skill IDs are source-prefixed: workspace-authored skills use `workspace.<name>` and server-installed skills use `server.<name>`. Built-in skills keep their `core.<name>` IDs.
-
-Entrypoint scripts are opt-in twice: deployment must set `SKILL_SCRIPTS_ENABLED=true`, and the individual run must set the allow-scripts checkbox, API field, or CLI flag. Supported entrypoint extensions are `.js`, `.sh`, and `.py`.
-
 4. Generate Prisma client and initialize the database:
 
    ```bash
@@ -72,6 +64,84 @@ For production builds:
 npm run build
 npm run start
 ```
+
+## Skills
+
+Skills are reusable workspace actions. A run selects one skill, gives it a prompt, and writes the result to an optional workspace output path. Skill runs require editor access to the workspace and are audit logged.
+
+Skill sources:
+
+| Source | ID format | Where it comes from |
+| ------ | --------- | ------------------- |
+| Core | `core.<name>` | Built into the app. Current core skills are `core.research-synthesis`, `core.web-search-grounding`, and `core.chain-builder`. |
+| Workspace | `workspace.<name>` | Workspace files under `skills/<name>/SKILL.md`. |
+| Server | `server.<name>` | Server directories under `skills/`, `.agents/skills/`, or any absolute root in `BROWSER_AGENT_SKILL_ROOTS`. |
+
+Directory skills use this layout:
+
+```text
+skills/<name>/
+  SKILL.md
+  references/...   # optional text assets added as context
+  scripts/...      # optional text/script assets added as context
+```
+
+`SKILL.md` must start with frontmatter:
+
+```yaml
+---
+name: my-skill
+description: What this skill does.
+chainRunnable: true
+entrypoint: scripts/run.js
+---
+Write the instructions the agent should follow.
+```
+
+`name` must match the directory name. `description` is required. `chainRunnable` defaults to `true`; set it to `false` for skills that should be callable directly but not inside skill chains. `entrypoint` is optional and must point inside `scripts/` to a `.js`, `.sh`, or `.py` file.
+
+References and scripts are loaded as bounded text context. Entrypoint execution is stricter: deployment must set `SKILL_SCRIPTS_ENABLED=true`, and the individual run must opt in with the allow-scripts checkbox, API field, or CLI flag. Without both gates, entrypoint-backed skills fail before execution.
+
+## Skill chains
+
+Skill chains turn a larger workspace job into ordered skill runs. A chain manifest names the steps, chooses a chain-runnable skill for each step, gives each step its own prompt, and writes every step output back into the workspace. Each step receives the initial input file plus the successful outputs from earlier steps, so later steps can build on earlier artifacts instead of rediscovering context.
+
+You can build chains for repeatable knowledge-work pipelines, for example:
+
+- Research → implementation plan → worker-ready brief, as shown in `skill-chains/examples/research-plan-implementation.json`.
+- Web-grounded market scan → sourced workspace summary → risks and next actions.
+- Intake notes → normalized product brief → QA checklist → stakeholder summary.
+- Directory-skill workflows that use workspace-specific instructions, reference packs, and script-backed preprocessing when scripts are explicitly enabled.
+
+Chains are intentionally sequential and file-backed. They are best for deterministic handoffs where each intermediate artifact is useful on its own. They are not a hidden parallel executor, and `core.chain-builder` cannot be used as a chain step.
+
+Manifest shape:
+
+```json
+{
+  "version": 1,
+  "id": "research-plan-implementation",
+  "name": "Research to Plan to Implementation",
+  "steps": [
+    {
+      "id": "market-research",
+      "skillId": "core.research-synthesis",
+      "prompt": "Produce market research for the supplied idea.",
+      "outputPath": "chains/research-plan-implementation/{{runId}}/{{stepIndex}}-market-research.md"
+    }
+  ]
+}
+```
+
+Manifest rules:
+
+- `id` and step `id` values are lowercase slugs.
+- `steps` must contain 1 to 20 unique steps.
+- `skillId` must reference an available skill whose `chainRunnable` flag is `true`.
+- `outputPath` is a workspace path template. Supported tokens are `{{runId}}`, `{{stepId}}`, and `{{stepIndex}}`; `{{stepIndex}}` renders as `01`, `02`, and so on.
+- New runs copy the manifest, initial input, chain state, and step outputs under `chains/<manifest-id>/<run-id>/...`.
+
+Use `npm run skill-chain:create` to ask `core.chain-builder` to generate a validated manifest from a goal. The builder sees workspace instructions, workspace file metadata, and the list of chain-runnable skills; it writes JSON only and retries once with a repair prompt if validation fails.
 
 ## Available npm scripts
 
@@ -144,6 +214,8 @@ Common options:
 | `--model <model>`         | No                                            | Override the default model for the run.                          |
 | `--allow-scripts`         | No                                            | Permit skill entrypoints when `SKILL_SCRIPTS_ENABLED=true`.      |
 | `--dry-run`               | No                                            | Validate inputs and print status without running the chain.      |
+
+When a run starts, the runner validates the manifest, copies the manifest and initial input into the workspace, creates `chain-state.json`, runs steps in order, updates state after each transition, and writes audit events for chain start, step start, step success or failure, and chain success or failure.
 
 Resume a waiting or failed run with the state path printed by the previous command:
 
