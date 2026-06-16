@@ -21,6 +21,8 @@ python .\.omp\scripts\save-plan.py
 
 It prints both `python` and `python3` commands; run the one appropriate for your shell.
 
+`save-plan.py` warns when the plan H1 is generic because that title controls worktree-flow branch names, archive folders, and commit messages.
+
 Codex:
 
 ```powershell
@@ -95,19 +97,19 @@ Conflict path only, inside the integration worktree:
 .<harness>/handoff/post-conflict-audit-final-response.md
 ```
 
-The workflow plan is copied into the feature worktree at:
+The workflow plan is copied into the feature worktree during the run at:
 
 ```text
 .<harness>/worktree-flow/<slug>/plan.md
 ```
 
-Before cleanup, the script archives handoff files and workflow state back into the primary checkout:
+After successful integration, the script archives handoff files, workflow state, and the plan back into the primary checkout:
 
 ```text
 .<harness>/worktree-flow/<run-id>/
 ```
 
-This archive directory contains the copied handoff files and `workflow-state.json`; it is the durable record after the feature and integration worktrees are removed.
+This archive directory contains `plan.md`, the copied handoff files, and `workflow-state.json`; it is the durable record after the feature and integration worktrees are removed. The transient `.<harness>/worktree-flow/<slug>/` folder is removed after successful integration when it only contains `plan.md`.
 
 ## Safety Notes
 

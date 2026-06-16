@@ -22,6 +22,15 @@ from urllib.parse import unquote, urlparse
 DEFAULT_HARNESS = "omp"
 DEFAULT_HARNESS_DIR = Path(".omp")
 DEFAULT_PLAN_NAME = "PLAN.md"
+GENERIC_PLAN_TITLE_SLUGS = {
+    "context",
+    "plan",
+    "implementation",
+    "implementation-plan",
+    "task",
+    "todo",
+    "changes",
+}
 WORKTREE_FLOW_DIR = Path(".omp") / "worktree-flow"
 
 
@@ -36,6 +45,19 @@ def slugify(value: str, *, max_words: int = 6, max_len: int = 60) -> str:
     words = [part for part in cleaned.split("-") if part]
     slug = "-".join(words[:max_words]) or "harness-plan"
     return slug[:max_len].strip("-") or "harness-plan"
+
+def is_generic_plan_title(title: str) -> bool:
+    return slugify(title) in GENERIC_PLAN_TITLE_SLUGS
+
+
+def warn_if_generic_plan_title(title: str) -> None:
+    if is_generic_plan_title(title):
+        print(
+            f'Warning: plan H1 "{title}" is generic; use a descriptive H1 because '
+            "worktree-flow uses it for branch names, archive folders, and commit messages.",
+            file=sys.stderr,
+        )
+
 
 
 def plan_title(plan_path: Path) -> str:
@@ -222,8 +244,10 @@ def resolve_source_arg(repo: Path, sessions_root: Path, source: str | None) -> P
     return PlanSource(path=path, source=str(path))
 
 
-def copy_plan_to_worktree_flow(repo: Path, source: Path) -> Path:
-    slug = slugify(plan_title(source))
+def copy_plan_to_worktree_flow(
+    repo: Path, source: Path, title: str | None = None
+) -> Path:
+    slug = slugify(title if title is not None else plan_title(source))
     target = repo / WORKTREE_FLOW_DIR / slug / "plan.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
@@ -289,9 +313,15 @@ def main(argv: list[str] | None = None) -> int:
     (repo / DEFAULT_HARNESS_DIR).mkdir(exist_ok=True)
     (repo / WORKTREE_FLOW_DIR).mkdir(parents=True, exist_ok=True)
 
-    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else default_sessions_root(repo)
+    sessions_root = (
+        Path(args.sessions_root).resolve()
+        if args.sessions_root
+        else default_sessions_root(repo)
+    )
     plan_source = resolve_source_arg(repo, sessions_root, args.source)
-    saved_plan = copy_plan_to_worktree_flow(repo, plan_source.path)
+    title = plan_title(plan_source.path)
+    warn_if_generic_plan_title(title)
+    saved_plan = copy_plan_to_worktree_flow(repo, plan_source.path, title)
     print(command_for_plan(repo, saved_plan, args.harness, Path(args.harness_dir)))
     print(command_for_plan(repo, saved_plan, args.harness, Path(args.harness_dir), "python3"))
     return 0
