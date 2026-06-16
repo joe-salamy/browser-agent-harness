@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   assertWorkspaceAccess: vi.fn(),
   writeAuditLog: vi.fn(),
   listAvailableSkills: vi.fn(),
-  runSkill: vi.fn(),
+  runAgentWithSkills: vi.fn(),
   createWorkspaceFile: vi.fn(),
   getWorkspaceFileByPath: vi.fn(),
   readWorkspaceTextFile: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock("@/server/audit/log", () => ({
 
 vi.mock("@/server/skills/registry", () => ({
   listAvailableSkills: mocks.listAvailableSkills,
-  runSkill: mocks.runSkill,
+  runAgentWithSkills: mocks.runAgentWithSkills,
 }));
 
 vi.mock("@/server/workspaces/files", () => ({
@@ -104,8 +104,8 @@ describe("skill chain dynamic skill validation", () => {
     );
   });
 
-  it("passes allowScripts through the default runSkill executor", async () => {
-    mocks.runSkill.mockResolvedValueOnce({
+  it("passes allowScripts through the default multi-skill executor", async () => {
+    mocks.runAgentWithSkills.mockResolvedValueOnce({
       runId: "agent-run-1",
       status: "SUCCEEDED",
       outputFileId: "output-file-1",
@@ -121,11 +121,11 @@ describe("skill chain dynamic skill validation", () => {
     });
 
     expect(result.status).toBe("SUCCEEDED");
-    expect(mocks.runSkill).toHaveBeenCalledWith(
+    expect(mocks.runAgentWithSkills).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
         workspaceId: "workspace-1",
-        skillId: "workspace.my-skill",
+        skillIds: ["workspace.my-skill"],
         prompt: expect.stringContaining("Run workspace skill."),
         allowScripts: true,
         outputPath: expect.stringMatching(

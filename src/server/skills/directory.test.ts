@@ -87,10 +87,13 @@ describe("directory skill loading", () => {
       }),
     );
 
-    await expect(
-      listDirectorySkills({ userId: "user-1", workspaceId: "workspace-1" }),
-    ).resolves.toMatchObject([
-      {
+    const summaries = await listDirectorySkills({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+
+    expect(summaries).toContainEqual(
+      expect.objectContaining({
         id: "workspace.my-skill",
         name: "my-skill",
         source: "workspace",
@@ -99,8 +102,8 @@ describe("directory skill loading", () => {
         hasEntrypoint: true,
         referenceCount: 1,
         scriptCount: 1,
-      },
-    ]);
+      }),
+    );
     const loaded = await loadDirectorySkill({
       userId: "user-1",
       workspaceId: "workspace-1",
@@ -167,6 +170,29 @@ describe("directory skill loading", () => {
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("discovers repo-local server skills from skills directories", async () => {
+    const summaries = await listDirectorySkills({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+    const loaded = await loadDirectorySkill({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      skillId: "server.research-synthesis",
+    });
+
+    expect(summaries).toContainEqual(
+      expect.objectContaining({
+        id: "server.research-synthesis",
+        source: "server",
+        description:
+          "Synthesizes supported workspace text files into a sourced Markdown summary.",
+        chainRunnable: true,
+      }),
+    );
+    expect(loaded?.instructions).toContain("Summary, Key Findings");
   });
 
   it("rejects invalid entrypoints and name-directory mismatches", async () => {

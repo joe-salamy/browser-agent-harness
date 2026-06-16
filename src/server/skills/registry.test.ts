@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as DirectoryModule from "./directory";
+import type { LoadedDirectorySkill, SkillSummary } from "./directory";
 
 const mocks = vi.hoisted(() => ({
   assertWorkspaceAccess: vi.fn(),
   writeAuditLog: vi.fn(),
   runtimeRun: vi.fn(),
-  buildSkillChainManifest: vi.fn(),
-  runWebSearchGroundingSkill: vi.fn(),
   listDirectorySkills: vi.fn(),
   loadDirectorySkill: vi.fn(),
   runSkillEntrypoint: vi.fn(),
@@ -24,14 +23,6 @@ vi.mock("@/server/agents/minimal-runtime", () => ({
   minimalAgentRuntime: { run: mocks.runtimeRun },
 }));
 
-vi.mock("@/server/skill-chains/builder", () => ({
-  buildSkillChainManifest: mocks.buildSkillChainManifest,
-}));
-
-vi.mock("@/server/skills/web-search", () => ({
-  runWebSearchGroundingSkill: mocks.runWebSearchGroundingSkill,
-}));
-
 vi.mock("@/server/skills/directory", async (importOriginal) => {
   const actual = await importOriginal<typeof DirectoryModule>();
   return {
@@ -45,19 +36,19 @@ vi.mock("@/server/skills/script-runner", () => ({
   runSkillEntrypoint: mocks.runSkillEntrypoint,
 }));
 
-import { CORE_SKILLS, listAvailableSkills, runSkill } from "./registry";
+import { listAvailableSkills, runAgentWithSkills } from "./registry";
 
 const directorySummary = {
   id: "workspace.my-skill",
   name: "my-skill",
-  source: "workspace" as const,
+  source: "workspace",
   description: "Runs workspace instructions.",
   chainRunnable: true,
   hasEntrypoint: false,
   referenceCount: 1,
   scriptCount: 1,
   requiredPermissions: ["files:read", "files:write", "models:generate"],
-};
+} as const satisfies SkillSummary;
 
 const directorySkill = {
   ...directorySummary,
@@ -80,7 +71,24 @@ const directorySkill = {
       truncated: false,
     },
   ],
-};
+} as const satisfies LoadedDirectorySkill;
+
+const serverSkill = {
+  id: "server.other-skill",
+  name: "other-skill",
+  source: "server",
+  description: "Runs server instructions.",
+  chainRunnable: true,
+  hasEntrypoint: false,
+  referenceCount: 0,
+  scriptCount: 0,
+  requiredPermissions: ["files:read", "files:write", "models:generate"],
+  instructions: "Use server instructions.",
+  skillMarkdown:
+    "---\nname: other-skill\ndescription: Runs server instructions.\n---\nUse server instructions.",
+  references: [],
+  scripts: [],
+} as const satisfies LoadedDirectorySkill;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -90,166 +98,147 @@ beforeEach(() => {
 });
 
 describe("skill registry authorization and dispatch", () => {
-  it("lists core skills before discovered directory skills", async () => {
+  it("lists discovered directory skills only", async () => {
     await expect(
       listAvailableSkills({ userId: "user-1", workspaceId: "workspace-1" }),
-    ).resolves.toEqual([
-      CORE_SKILLS["core.research-synthesis"],
-      CORE_SKILLS["core.web-search-grounding"],
-      CORE_SKILLS["core.chain-builder"],
-      directorySummary,
-    ]);
+    ).resolves.toEqual([directorySummary]);
   });
 
-  it("checks workspace editor access before auditing or starting a known core run", async () => {
-    mocks.assertWorkspaceAccess.mockRejectedValueOnce(new Error("Forbidden"));
+  it("runs without skills when skillIds is omitted", async () => {
+    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-1", status: "SUCCEEDED" });
 
     await expect(
-      runSkill({
+      runAgentWithSkills({
         userId: "user-1",
         workspaceId: "workspace-1",
-        skillId: "core.research-synthesis",
-      }),
-    ).rejects.toThrow("Forbidden");
-
-    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
-    expect(mocks.runtimeRun).not.toHaveBeenCalled();
-    expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
-    expect(mocks.runWebSearchGroundingSkill).not.toHaveBeenCalled();
-  });
-
-  it("rejects syntactically invalid skill ids before access or audit side effects", async () => {
-    await expect(
-      runSkill({
-        userId: "user-1",
-        workspaceId: "workspace-1",
-        skillId: "toString",
-      }),
-    ).rejects.toThrow("Unknown skill: toString.");
-
-    expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
-    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
-    expect(mocks.runtimeRun).not.toHaveBeenCalled();
-    expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
-    expect(mocks.runWebSearchGroundingSkill).not.toHaveBeenCalled();
-  });
-
-  it("forwards model and output path to research synthesis runtime", async () => {
-    mocks.runtimeRun.mockResolvedValueOnce({
-      runId: "run-1",
-      status: "SUCCEEDED",
-      outputFileId: "file-1",
-    });
-
-    await expect(
-      runSkill({
-        userId: "user-1",
-        workspaceId: "workspace-1",
-        skillId: "core.research-synthesis",
-        prompt: "Focus on policy.",
+        prompt: "Run plainly.",
         model: "openai/gpt-4.1-mini",
-        outputPath: "outputs/summary.md",
+        outputPath: "outputs/plain.md",
       }),
     ).resolves.toMatchObject({ runId: "run-1", status: "SUCCEEDED" });
 
     expect(mocks.runtimeRun).toHaveBeenCalledWith({
       userId: "user-1",
       workspaceId: "workspace-1",
-      prompt:
-        "Synthesize the readable workspace files into: Summary, Key Findings, Source Notes, and Recommended Next Steps. Focus on policy.",
+      prompt: "Run plainly.",
       model: "openai/gpt-4.1-mini",
-      outputPath: "outputs/summary.md",
+      outputPath: "outputs/plain.md",
+    });
+    expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
+    expect(mocks.loadDirectorySkill).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("runs without skills when skillIds is empty", async () => {
+    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-2", status: "SUCCEEDED" });
+
+    await runAgentWithSkills({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      prompt: "Run plainly.",
+      skillIds: [],
+    });
+
+    expect(mocks.runtimeRun).toHaveBeenCalledWith({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      prompt: "Run plainly.",
+      model: undefined,
+      outputPath: undefined,
+    });
+    expect(mocks.loadDirectorySkill).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("rejects core skill ids before access, audit, or runtime calls", async () => {
+    await expect(
+      runAgentWithSkills({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Use old skill.",
+        skillIds: ["core.research-synthesis"],
+      }),
+    ).rejects.toThrow("Unknown skill: core.research-synthesis.");
+
+    expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
+    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
+    expect(mocks.runtimeRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate skill ids before loading or runtime calls", async () => {
+    await expect(
+      runAgentWithSkills({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Use duplicate skills.",
+        skillIds: ["workspace.my-skill", "workspace.my-skill"],
+      }),
+    ).rejects.toThrow("Duplicate skill selected: workspace.my-skill.");
+
+    expect(mocks.loadDirectorySkill).not.toHaveBeenCalled();
+    expect(mocks.runtimeRun).not.toHaveBeenCalled();
+  });
+
+  it("loads multiple skills in request order and calls the runtime once", async () => {
+    mocks.loadDirectorySkill
+      .mockResolvedValueOnce(directorySkill)
+      .mockResolvedValueOnce(serverSkill);
+    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-3", status: "SUCCEEDED" });
+
+    await expect(
+      runAgentWithSkills({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Use both skills.",
+        skillIds: ["workspace.my-skill", "server.other-skill"],
+      }),
+    ).resolves.toMatchObject({ runId: "run-3", status: "SUCCEEDED" });
+
+    expect(mocks.loadDirectorySkill).toHaveBeenNthCalledWith(1, {
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      skillId: "workspace.my-skill",
+    });
+    expect(mocks.loadDirectorySkill).toHaveBeenNthCalledWith(2, {
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      skillId: "server.other-skill",
     });
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        eventType: "skill.run.started",
+        eventType: "skill.loaded",
+        targetId: "workspace.my-skill",
+        summary: "Loaded skill my-skill.",
         metadata: {
-          skillId: "core.research-synthesis",
-          source: "core",
-          name: "Research Synthesis",
+          skillId: "workspace.my-skill",
+          source: "workspace",
+          name: "my-skill",
           allowScripts: false,
         },
       }),
     );
-  });
-
-  it("dispatches web search grounding after editor access and skill audit", async () => {
-    mocks.runWebSearchGroundingSkill.mockResolvedValueOnce({
-      runId: "run-1",
-      status: "SUCCEEDED",
-      outputFileId: "file-1",
-    });
-
-    await expect(
-      runSkill({
-        userId: "user-1",
-        workspaceId: "workspace-1",
-        skillId: "core.web-search-grounding",
-        prompt: "Find updates.",
-      }),
-    ).resolves.toMatchObject({ runId: "run-1", status: "SUCCEEDED" });
-
-    expect(mocks.runWebSearchGroundingSkill).toHaveBeenCalledWith({
-      userId: "user-1",
-      workspaceId: "workspace-1",
-      prompt: "Find updates.",
-      model: undefined,
-      outputPath: undefined,
-    });
-  });
-
-  it("dispatches chain builder after editor access and skill audit", async () => {
-    mocks.buildSkillChainManifest.mockResolvedValueOnce({
-      runId: "run-2",
-      status: "SUCCEEDED",
-      outputFileId: "file-2",
-      manifestPath: "chains/manifests/run-2.json",
-    });
-
-    await expect(
-      runSkill({
-        userId: "user-1",
-        workspaceId: "workspace-1",
-        skillId: "core.chain-builder",
-        prompt: "Build a chain.",
-      }),
-    ).resolves.toMatchObject({ runId: "run-2", status: "SUCCEEDED" });
-
-    expect(mocks.buildSkillChainManifest).toHaveBeenCalledWith({
-      userId: "user-1",
-      workspaceId: "workspace-1",
-      prompt: "Build a chain.",
-      model: undefined,
-      outputPath: undefined,
-    });
-  });
-
-  it("runs directory skills with instructions, references, and scripts as supplemental context", async () => {
-    mocks.loadDirectorySkill.mockResolvedValueOnce(directorySkill);
-    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-3", status: "SUCCEEDED" });
-
-    await expect(
-      runSkill({
-        userId: "user-1",
-        workspaceId: "workspace-1",
-        skillId: "workspace.my-skill",
-        prompt: "Use the schema.",
-      }),
-    ).resolves.toMatchObject({ runId: "run-3", status: "SUCCEEDED" });
-
+    expect(mocks.runtimeRun).toHaveBeenCalledTimes(1);
     expect(mocks.runtimeRun).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
         workspaceId: "workspace-1",
-        prompt: expect.stringContaining("Skill: my-skill"),
+        prompt: "Use both skills.",
         supplementalContexts: [
           {
-            label: "Skill References",
+            label: "Skill Instructions (workspace.my-skill)",
+            content: expect.stringContaining("Skill: my-skill"),
+          },
+          {
+            label: "Skill References (workspace.my-skill)",
             content: "## references/schema.md\n# Schema",
           },
           {
-            label: "Skill Scripts",
+            label: "Skill Scripts (workspace.my-skill)",
             content: "## scripts/validate.js\nconsole.log('ok');",
+          },
+          {
+            label: "Skill Instructions (server.other-skill)",
+            content: expect.stringContaining("Skill: other-skill"),
           },
         ],
       }),
@@ -264,11 +253,11 @@ describe("skill registry authorization and dispatch", () => {
     });
 
     await expect(
-      runSkill({
+      runAgentWithSkills({
         userId: "user-1",
         workspaceId: "workspace-1",
-        skillId: "workspace.my-skill",
         prompt: "Use scripts.",
+        skillIds: ["workspace.my-skill"],
         allowScripts: false,
       }),
     ).rejects.toThrow("Skill script execution is not enabled for this run.");
@@ -288,11 +277,11 @@ describe("skill registry authorization and dispatch", () => {
       });
 
       await expect(
-        runSkill({
+        runAgentWithSkills({
           userId: "user-1",
           workspaceId: "workspace-1",
-          skillId: "workspace.my-skill",
           prompt: "Use scripts.",
+          skillIds: ["workspace.my-skill"],
           allowScripts: true,
         }),
       ).rejects.toThrow("Skill entrypoint scripts/missing.js was not found.");
@@ -320,11 +309,11 @@ describe("skill registry authorization and dispatch", () => {
       });
 
       await expect(
-        runSkill({
+        runAgentWithSkills({
           userId: "user-1",
           workspaceId: "workspace-1",
-          skillId: "workspace.my-skill",
           prompt: "Use scripts.",
+          skillIds: ["workspace.my-skill"],
           allowScripts: true,
         }),
       ).rejects.toThrow(
@@ -361,11 +350,11 @@ describe("skill registry authorization and dispatch", () => {
       mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-4", status: "SUCCEEDED" });
 
       await expect(
-        runSkill({
+        runAgentWithSkills({
           userId: "user-1",
           workspaceId: "workspace-1",
-          skillId: "workspace.my-skill",
           prompt: "Use scripts.",
+          skillIds: ["workspace.my-skill"],
           allowScripts: true,
         }),
       ).resolves.toMatchObject({ runId: "run-4" });
@@ -382,7 +371,7 @@ describe("skill registry authorization and dispatch", () => {
         expect.objectContaining({
           supplementalContexts: expect.arrayContaining([
             {
-              label: "Skill Script Output",
+              label: "Skill Script Output (workspace.my-skill)",
               content: "stdout:\nscript-ok\n\nstderr:\n",
             },
           ]),

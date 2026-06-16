@@ -160,19 +160,19 @@ function makeManifest(id: string): SkillChainManifest {
     steps: [
       {
         id: "market-research",
-        skillId: "core.research-synthesis",
+        skillId: "server.research-synthesis",
         prompt: "Research the idea.",
         outputPath: `chains/${id}/{{runId}}/{{stepIndex}}-market-research.md`,
       },
       {
         id: "planning",
-        skillId: "core.research-synthesis",
+        skillId: "server.research-synthesis",
         prompt: "Plan the work.",
         outputPath: `chains/${id}/{{runId}}/{{stepIndex}}-planning.md`,
       },
       {
         id: "implementation-brief",
-        skillId: "core.research-synthesis",
+        skillId: "server.research-synthesis",
         prompt: "Write implementation instructions.",
         outputPath: `chains/${id}/{{runId}}/{{stepIndex}}-implementation-brief.md`,
       },

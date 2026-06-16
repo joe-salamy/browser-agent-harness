@@ -10,7 +10,7 @@ import {
   type WorkspaceFileWithCurrentVersion,
 } from "@/server/workspaces/files";
 
-export type SkillSource = "core" | "server" | "workspace";
+export type SkillSource = "server" | "workspace";
 
 export type SkillSummary = {
   id: string;
@@ -157,7 +157,7 @@ function nameFromSkillId(skillId: string): string | null {
 }
 
 export function isValidSkillId(skillId: string): boolean {
-  return /^(core|workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skillId);
+  return SKILL_ID_PATTERN.test(skillId);
 }
 
 function summaryFromParsed(

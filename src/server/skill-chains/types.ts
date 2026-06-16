@@ -5,8 +5,8 @@ export const SKILL_CHAIN_MANIFEST_VERSION = 1 as const;
 export const SKILL_CHAIN_STATE_VERSION = 1 as const;
 export const skillIdSchema = z
   .string()
-  .regex(/^(core|workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
-export const CHAIN_AUTHORING_SKILL_ID = "core.chain-builder" as const;
+  .regex(/^(workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const CHAIN_AUTHORING_SKILL_ID = "server.chain-builder" as const;
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 const WINDOWS_DRIVE_SEGMENT_PATTERN = /^[A-Za-z]:/;

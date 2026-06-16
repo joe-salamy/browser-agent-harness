@@ -29,9 +29,9 @@ beforeEach(() => {
   mocks.assertWorkspaceAccess.mockResolvedValue({});
   mocks.listAvailableSkills.mockResolvedValue([
     {
-      id: "core.research-synthesis",
-      name: "Research Synthesis",
-      source: "core",
+      id: "server.research-synthesis",
+      name: "research-synthesis",
+      source: "server",
       description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
       chainRunnable: true,
       hasEntrypoint: false,
@@ -50,8 +50,8 @@ describe("workspace skills list route", () => {
     await expect(response.json()).resolves.toEqual({
       skills: [
         expect.objectContaining({
-          id: "core.research-synthesis",
-          source: "core",
+          id: "server.research-synthesis",
+          source: "server",
           chainRunnable: true,
         }),
       ],

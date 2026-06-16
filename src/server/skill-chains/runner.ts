@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { WorkspaceRole } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/log";
-import { listAvailableSkills, runSkill } from "@/server/skills/registry";
+import { listAvailableSkills, runAgentWithSkills } from "@/server/skills/registry";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 import {
   createWorkspaceFile,
@@ -256,10 +256,10 @@ function renderStepPrompt(input: {
 async function defaultExecuteStep(
   input: SkillChainStepExecutionInput,
 ): Promise<SkillChainStepExecutionResult> {
-  const result = await runSkill({
+  const result = await runAgentWithSkills({
     userId: input.userId,
     workspaceId: input.workspaceId,
-    skillId: input.skillId,
+    skillIds: [input.skillId],
     prompt: input.prompt,
     model: input.model,
     outputPath: input.outputPath,

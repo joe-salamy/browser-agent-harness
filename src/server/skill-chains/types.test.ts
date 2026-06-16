@@ -12,7 +12,7 @@ const validManifest = {
   steps: [
     {
       id: "summarize",
-      skillId: "core.research-synthesis",
+      skillId: "server.research-synthesis",
       prompt: "Summarize the sources.",
       outputPath: "chains/{{runId}}/{{stepIndex}}-{{stepId}}.md",
     },
@@ -22,7 +22,7 @@ const validManifest = {
 describe("skill chain manifest validation", () => {
   it("accepts a valid builder-style manifest", () => {
     expect(parseSkillChainManifest(validManifest).steps[0]?.skillId).toBe(
-      "core.research-synthesis",
+      "server.research-synthesis",
     );
   });
 
@@ -55,13 +55,13 @@ describe("skill chain manifest validation", () => {
     ).toThrow("Invalid skill chain manifest.");
   });
 
-  it("allows core.chain-builder at schema level for runner and builder validation", () => {
+  it("allows server.chain-builder at schema level for runner and builder validation", () => {
     expect(
       parseSkillChainManifest({
         ...validManifest,
-        steps: [{ ...validManifest.steps[0], skillId: "core.chain-builder" }],
+        steps: [{ ...validManifest.steps[0], skillId: "server.chain-builder" }],
       }).steps[0]?.skillId,
-    ).toBe("core.chain-builder");
+    ).toBe("server.chain-builder");
   });
 
   it("rejects duplicate step ids", () => {

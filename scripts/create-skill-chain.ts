@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { runSkill } from "@/server/skills/registry";
+import { buildSkillChainManifest } from "@/server/skill-chains/builder";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
 type ParsedArgs = {
@@ -121,10 +121,9 @@ async function main(): Promise<void> {
     console.log(`Goal characters: ${goal.length}`);
     return;
   }
-  const result = await runSkill({
+  const result = await buildSkillChainManifest({
     userId: resolved.userId,
     workspaceId: resolved.workspaceId,
-    skillId: "core.chain-builder",
     prompt: goal,
     model: args.model,
     outputPath: args.outputPath,

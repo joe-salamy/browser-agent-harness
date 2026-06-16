@@ -121,7 +121,7 @@ describe("workspace skill-chain route", () => {
       steps: [
         {
           id: "research",
-          skillId: "core.research-synthesis",
+          skillId: "server.research-synthesis",
           prompt: "Research.",
           outputPath: "chains/test-chain/{{runId}}/{{stepIndex}}-research.md",
         },

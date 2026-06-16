@@ -53,7 +53,7 @@ export function buildChainBuilderSystemPrompt(
   return `You are the Chain Builder skill. Return only JSON matching SkillChainManifest version 1.
 Allowed executable skill IDs:
 ${allowedSkillLines}
-Do not include core.chain-builder as a step. Use outputPath values under chains/<manifest-id>/{{runId}}/{{stepIndex}}-<step-id>.md. Use only tokens {{runId}}, {{stepId}}, and {{stepIndex}}.`;
+Do not include ${CHAIN_AUTHORING_SKILL_ID} as a step. Use outputPath values under chains/<manifest-id>/{{runId}}/{{stepIndex}}-<step-id>.md. Use only tokens {{runId}}, {{stepId}}, and {{stepIndex}}.`;
 }
 
 export function buildChainBuilderUserContext(input: {

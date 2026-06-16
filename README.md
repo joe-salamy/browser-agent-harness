@@ -27,7 +27,6 @@ A browser-native foundation for building agent-powered knowledge-work products w
    | `ENCRYPTION_MASTER_KEY`     | Yes      | Base64-encoded 32-byte key for encrypted model credentials.                                   |
    | `OPENROUTER_API_KEY`        | Optional | Fallback model API key when a workspace credential is not configured.                         |
    | `OPENROUTER_ALLOWED_MODELS` | Optional | Comma-separated model ids allowed in addition to the default OpenRouter model.                |
-   | `TAVILY_API_KEY`            | Optional | Enables web-search grounding skills.                                                          |
    | `BROWSER_AGENT_SKILL_ROOTS` | Optional | Extra server-installed skill roots, split by the OS path delimiter.                           |
    | `SKILL_SCRIPTS_ENABLED`     | Optional | Set to `true` to permit per-run directory skill entrypoint execution.                         |
    | `BASH_BIN`                  | Optional | Shell executable used for `.sh` skill entrypoints; defaults to `bash`.                       |
@@ -67,15 +66,16 @@ npm run start
 
 ## Skills
 
-Skills are reusable workspace actions. A run selects one skill, gives it a prompt, and writes the result to an optional workspace output path. Skill runs require editor access to the workspace and are audit logged.
+Skills are reusable instructions, references, and optional scripts that a run may load. A browser-agent run can load zero, one, or many skills, then writes the result to an optional workspace output path. Skill-backed runs require editor access to the workspace and are audit logged.
 
 Skill sources:
 
 | Source | ID format | Where it comes from |
 | ------ | --------- | ------------------- |
-| Core | `core.<name>` | Built into the app. Current core skills are `core.research-synthesis`, `core.web-search-grounding`, and `core.chain-builder`. |
 | Workspace | `workspace.<name>` | Workspace files under `skills/<name>/SKILL.md`. |
 | Server | `server.<name>` | Server directories under `skills/`, `.agents/skills/`, or any absolute root in `BROWSER_AGENT_SKILL_ROOTS`. |
+
+Built-in harness skills are installed as server directory skills under `skills/<name>/SKILL.md`, so they use the same loading path as user-installed server skills.
 
 Directory skills use this layout:
 
@@ -113,7 +113,7 @@ You can build chains for repeatable knowledge-work pipelines, for example:
 - Intake notes → normalized product brief → QA checklist → stakeholder summary.
 - Directory-skill workflows that use workspace-specific instructions, reference packs, and script-backed preprocessing when scripts are explicitly enabled.
 
-Chains are intentionally sequential and file-backed. They are best for deterministic handoffs where each intermediate artifact is useful on its own. They are not a hidden parallel executor, and `core.chain-builder` cannot be used as a chain step.
+Chains are intentionally sequential and file-backed. They are best for deterministic handoffs where each intermediate artifact is useful on its own. They are not a hidden parallel executor, and `server.chain-builder` cannot be used as a chain step.
 
 Manifest shape:
 
@@ -125,7 +125,7 @@ Manifest shape:
   "steps": [
     {
       "id": "market-research",
-      "skillId": "core.research-synthesis",
+      "skillId": "server.research-synthesis",
       "prompt": "Produce market research for the supplied idea.",
       "outputPath": "chains/research-plan-implementation/{{runId}}/{{stepIndex}}-market-research.md"
     }
@@ -141,7 +141,7 @@ Manifest rules:
 - `outputPath` is a workspace path template. Supported tokens are `{{runId}}`, `{{stepId}}`, and `{{stepIndex}}`; `{{stepIndex}}` renders as `01`, `02`, and so on.
 - New runs copy the manifest, initial input, chain state, and step outputs under `chains/<manifest-id>/<run-id>/...`.
 
-Use `npm run skill-chain:create` to ask `core.chain-builder` to generate a validated manifest from a goal. The builder sees workspace instructions, workspace file metadata, and the list of chain-runnable skills; it writes JSON only and retries once with a repair prompt if validation fails.
+Use `npm run skill-chain:create` to generate a validated manifest from a goal. The builder sees workspace instructions, workspace file metadata, and the list of chain-runnable skills; it writes JSON only and retries once with a repair prompt if validation fails.
 
 ## Available npm scripts
 
