@@ -3,3 +3,4 @@
 - In plan mode, use a descriptive H1 title that names the concrete change; avoid generic titles such as "Context", "Plan", or "Implementation". This title is used by worktree-flow branch names, archive folders, and commit messages.
 - Before performing any action (edits, web search, etc), briefly state in chat what files or behavior you intend to change and why. Do not wait for approval.
 - When loading any skill, record the load with `python ./.omp/scripts/skill-usage-manager.py record <skill-name> --scope repo --path <skills-dir> --repo <repo-root>`.
+- Keep CLI and browser GUI in parity: when adding or changing any user-facing CLI command or flag, expose the same workflow in the browser GUI in the same change, or document why that CLI behavior is not browser-applicable; update tests for both surfaces.

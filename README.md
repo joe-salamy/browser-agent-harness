@@ -143,6 +143,14 @@ Manifest rules:
 
 Use `npm run skill-chain:create` to generate a validated manifest from a goal. The builder sees workspace instructions, workspace file metadata, and the list of chain-runnable skills; it writes JSON only and retries once with a repair prompt if validation fails.
 
+### Browser Automation GUI
+
+The CLI and Automation GUI expose the same skill-chain workflows. Navigate to `/workspaces/<workspaceId>/automation` directly, or open a workspace and follow the `Automation` link.
+
+Use the Automation page to create manifests from goal text or imported text files; run new chains from pasted or imported manifest JSON, a workspace manifest path, or a workspace file selection; and resume from a chain state path. Preview and dry-run buttons validate manifest creation, new runs, and resumes without side effects.
+
+Browser file imports replace CLI local path flags. The browser reads selected local files and sends their text or parsed JSON content to the server; local filesystem paths are never sent.
+
 ## Available npm scripts
 
 | Script                       | Command                                                                                            | Purpose                                      |
