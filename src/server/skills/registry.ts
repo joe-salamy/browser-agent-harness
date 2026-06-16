@@ -2,6 +2,7 @@ import { WorkspaceRole } from "@prisma/client";
 import type { AgentRunResult } from "@/server/agents/runtime";
 import { buildSkillChainManifest } from "@/server/skill-chains/builder";
 import { minimalAgentRuntime } from "@/server/agents/minimal-runtime";
+import { runWebSearchGroundingSkill } from "@/server/skills/web-search";
 import { writeAuditLog } from "@/server/audit/log";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
@@ -10,6 +11,12 @@ export const BUILT_IN_SKILLS = {
     id: "core.research-synthesis",
     name: "Research Synthesis",
     description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
+    requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
+  },
+  "core.web-search-grounding": {
+    id: "core.web-search-grounding",
+    name: "Web Search & Grounding",
+    description: "Fetches web search context before running the minimal agent.",
     requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
   },
   "core.chain-builder": {
@@ -57,6 +64,14 @@ export async function runSkill(input: {
         outputPath: input.outputPath,
       });
     }
+    case "core.web-search-grounding":
+      return runWebSearchGroundingSkill({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        prompt: input.prompt,
+        model: input.model,
+        outputPath: input.outputPath,
+      });
     case "core.chain-builder":
       return buildSkillChainManifest({
         userId: input.userId,

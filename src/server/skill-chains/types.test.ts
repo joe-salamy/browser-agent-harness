@@ -25,6 +25,15 @@ describe("skill chain manifest validation", () => {
     expect(parseSkillChainManifest(validManifest).steps[0]?.skillId).toBe(EXECUTABLE_CHAIN_SKILL_IDS[0]);
   });
 
+  it("accepts web search grounding as an executable step", () => {
+    expect(
+      parseSkillChainManifest({
+        ...validManifest,
+        steps: [{ ...validManifest.steps[0], skillId: "core.web-search-grounding" }],
+      }).steps[0]?.skillId,
+    ).toBe("core.web-search-grounding");
+  });
+
   it("rejects chain builder as an executable step", () => {
     expect(() =>
       parseSkillChainManifest({

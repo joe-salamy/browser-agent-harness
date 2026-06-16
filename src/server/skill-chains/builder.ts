@@ -15,8 +15,7 @@ import {
   parseSkillChainManifest,
 } from "./types";
 
-const CHAIN_BUILDER_SYSTEM_PROMPT =
-  "You are the Chain Builder skill. Return only JSON matching SkillChainManifest version 1. Allowed executable skill IDs: core.research-synthesis. Do not include core.chain-builder as a step. Use outputPath values under chains/<manifest-id>/{{runId}}/{{stepIndex}}-<step-id>.md. Use only tokens {{runId}}, {{stepId}}, and {{stepIndex}}.";
+const CHAIN_BUILDER_SYSTEM_PROMPT = `You are the Chain Builder skill. Return only JSON matching SkillChainManifest version 1. Allowed executable skill IDs: ${EXECUTABLE_CHAIN_SKILL_IDS.join(", ")}. Do not include core.chain-builder as a step. Use outputPath values under chains/<manifest-id>/{{runId}}/{{stepIndex}}-<step-id>.md. Use only tokens {{runId}}, {{stepId}}, and {{stepIndex}}.`;
 
 type CompactWorkspaceFile = {
   path: string;

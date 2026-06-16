@@ -12,6 +12,7 @@ describe("chain builder prompt construction", () => {
 
     expect(messages[0]?.role).toBe("system");
     expect(messages[0]?.content).toContain("Return only JSON matching SkillChainManifest version 1");
+    expect(messages[0]?.content).toContain("core.web-search-grounding");
     const userContext = JSON.parse(messages[1]?.content ?? "{}");
     expect(userContext.notice).toContain("untrusted");
     expect(userContext.chainDescription).toBe("Build a research chain.");
@@ -21,6 +22,7 @@ describe("chain builder prompt construction", () => {
 
   it("allows only executable chain skills and excludes the authoring skill", () => {
     expect(EXECUTABLE_CHAIN_SKILL_IDS).toContain("core.research-synthesis");
+    expect(EXECUTABLE_CHAIN_SKILL_IDS).toContain("core.web-search-grounding");
     expect(EXECUTABLE_CHAIN_SKILL_IDS).not.toContain("core.chain-builder");
   });
 });

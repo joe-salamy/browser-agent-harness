@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   writeAuditLog: vi.fn(),
   runtimeRun: vi.fn(),
   buildSkillChainManifest: vi.fn(),
+  runWebSearchGroundingSkill: vi.fn(),
 }));
 
 vi.mock("@/server/workspaces/access", () => ({
@@ -21,6 +22,10 @@ vi.mock("@/server/agents/minimal-runtime", () => ({
 
 vi.mock("@/server/skill-chains/builder", () => ({
   buildSkillChainManifest: mocks.buildSkillChainManifest,
+}));
+
+vi.mock("@/server/skills/web-search", () => ({
+  runWebSearchGroundingSkill: mocks.runWebSearchGroundingSkill,
 }));
 
 import { runSkill } from "./registry";
@@ -40,6 +45,7 @@ describe("skill registry authorization and dispatch", () => {
     expect(mocks.writeAuditLog).not.toHaveBeenCalled();
     expect(mocks.runtimeRun).not.toHaveBeenCalled();
     expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
+    expect(mocks.runWebSearchGroundingSkill).not.toHaveBeenCalled();
   });
 
   it("rejects unknown skill ids before access or audit side effects", async () => {
@@ -51,6 +57,7 @@ describe("skill registry authorization and dispatch", () => {
     expect(mocks.writeAuditLog).not.toHaveBeenCalled();
     expect(mocks.runtimeRun).not.toHaveBeenCalled();
     expect(mocks.buildSkillChainManifest).not.toHaveBeenCalled();
+    expect(mocks.runWebSearchGroundingSkill).not.toHaveBeenCalled();
   });
 
   it("forwards model and output path to research synthesis runtime", async () => {
@@ -75,6 +82,36 @@ describe("skill registry authorization and dispatch", () => {
         "Synthesize the readable workspace files into: Summary, Key Findings, Source Notes, and Recommended Next Steps. Focus on risks.",
       model: "openai/gpt-4.1-mini",
       outputPath: "chains/run/01-research.md",
+    });
+  });
+
+  it("dispatches web search grounding after editor access and skill audit", async () => {
+    mocks.assertWorkspaceAccess.mockResolvedValueOnce({});
+    mocks.runWebSearchGroundingSkill.mockResolvedValueOnce({
+      runId: "run-web",
+      status: "SUCCEEDED",
+      outputFileId: "file-web",
+      outputPath: "outputs/web.md",
+    });
+
+    await expect(
+      runSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        skillId: "core.web-search-grounding",
+        prompt: "Research current launch news.",
+        model: "openai/gpt-4.1-mini",
+        outputPath: "outputs/web.md",
+      }),
+    ).resolves.toMatchObject({ runId: "run-web", status: "SUCCEEDED" });
+
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ eventType: "skill.run.started" }));
+    expect(mocks.runWebSearchGroundingSkill).toHaveBeenCalledWith({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      prompt: "Research current launch news.",
+      model: "openai/gpt-4.1-mini",
+      outputPath: "outputs/web.md",
     });
   });
 

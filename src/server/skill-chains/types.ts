@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const SKILL_CHAIN_MANIFEST_VERSION = 1 as const;
 export const SKILL_CHAIN_STATE_VERSION = 1 as const;
-export const EXECUTABLE_CHAIN_SKILL_IDS = ["core.research-synthesis"] as const;
+export const EXECUTABLE_CHAIN_SKILL_IDS = ["core.research-synthesis", "core.web-search-grounding"] as const;
 export const CHAIN_AUTHORING_SKILL_ID = "core.chain-builder" as const;
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
