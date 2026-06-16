@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "340ba81d9526314583695ede755db8785baf7cc3",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/expose-cli-functionality-in-the-browser",
+  "feature_worktree": "/mnt/c/Users/joesa/Code/browser-agent-harness-expose-cli-functionality-in-the-browser",
+  "integration_branch": "integration/expose-cli-functionality-in-the-browser-20260616-155621",
+  "integration_worktree": "/mnt/c/Users/joesa/Code/browser-agent-harness-integrate-expose-cli-functionality-in-the-browser-20260616-155621",
+  "merge_mode": "squash",
+  "plan_path": "/mnt/c/Users/joesa/Code/browser-agent-harness-expose-cli-functionality-in-the-browser/.omp/worktree-flow/expose-cli-functionality-in-the-browser/plan.md",
+  "plan_title": "Expose CLI Functionality in the Browser GUI",
+  "run_id": "expose-cli-functionality-in-the-browser-20260616-152755",
+  "slug": "expose-cli-functionality-in-the-browser"
+}
