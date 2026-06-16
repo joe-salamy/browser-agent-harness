@@ -22,12 +22,5 @@ describe("local object store key policy", () => {
         contentType: "application/octet-stream",
       }),
     ).rejects.toThrow("Invalid object key.");
-    await expect(
-      store.createSignedDownloadUrl({
-        key,
-        filename: "file.txt",
-        contentType: "application/octet-stream",
-      }),
-    ).rejects.toThrow("Invalid object key.");
   });
 });

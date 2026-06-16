@@ -1,21 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/auth";
-import { listAuditLogs } from "@/server/audit/log";
-import { listAvailableSkills } from "@/server/skills/registry";
-import { assertWorkspaceAccess } from "@/server/workspaces/access";
-import {
-  isCoreReadableText,
-  listWorkspaceFiles,
-  readWorkspaceTextFile,
-  UnsupportedTextFileError,
-} from "@/server/workspaces/files";
+import { getWorkspaceOverview } from "@/server/workspaces/queries";
 import { updateInstructionsAction, saveTextFileAction } from "../actions";
 import { UploadForm } from "./upload-form";
 import { RunForm } from "./run-form";
 import { RefreshListener } from "./refresh-listener";
-import { WorkspaceRole } from "@prisma/client";
 
 type Props = {
   params: Promise<{ workspaceId: string }>;
@@ -27,59 +17,20 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
   if (!userId) redirect("/sign-in");
   const { workspaceId } = await params;
   const query = await searchParams;
-  const workspace = await assertWorkspaceAccess(
-    userId,
-    workspaceId,
-    WorkspaceRole.VIEWER,
-  );
-  const files = await listWorkspaceFiles(userId, workspaceId);
-  const skills = await listAvailableSkills({ userId, workspaceId });
-  const logs = await listAuditLogs(userId, workspaceId);
-  const selectedFileId = query.fileId ?? files[0]?.id;
-  let selected: {
-    fileId: string;
-    path: string;
-    text?: string;
-    unsupported?: string;
-  } | null = null;
-  if (selectedFileId) {
-    const selectedFile = files.find((file) => file.id === selectedFileId);
-    if (selectedFile) {
-      try {
-        const read = await readWorkspaceTextFile(
-          userId,
-          workspaceId,
-          selectedFile.id,
-        );
-        selected = {
-          fileId: selectedFile.id,
-          path: read.file.path,
-          text: read.text,
-        };
-      } catch (error) {
-        selected = {
-          fileId: selectedFile.id,
-          path: selectedFile.path,
-          unsupported:
-            error instanceof UnsupportedTextFileError
-              ? error.message
-              : "File could not be read.",
-        };
-      }
-    }
-  }
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId } },
-  });
-  const canEdit = member?.role === "OWNER" || member?.role === "EDITOR";
+  const { workspace, files, skills, logs, canEdit, selected } =
+    await getWorkspaceOverview({
+      userId,
+      workspaceId,
+      selectedFileId: query.fileId,
+    });
 
   return (
-    <main className="container" style={{ padding: "32px 0" }}>
+    <main className="container page">
       <RefreshListener />
       <p>
         <Link href="/workspaces">← Workspaces</Link>
       </p>
-      <header className="grid two" style={{ alignItems: "start" }}>
+      <header className="grid two align-start">
         <div>
           <h1>{workspace.name}</h1>
           <p className="muted">
@@ -109,7 +60,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
         </nav>
       </header>
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two with-top-gap">
         <section className="card">
           <h2>Instructions</h2>
           <form className="grid" action={updateInstructionsAction}>
@@ -140,7 +91,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
         </section>
       </div>
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two with-top-gap">
         <section className="card">
           <h2>Files</h2>
           {canEdit ? (
@@ -170,11 +121,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
                   <td>{file.contentType}</td>
                   <td>{file.sizeBytes}</td>
                   <td>{file.currentVersion?.versionNumber ?? "—"}</td>
-                  <td>
-                    {isCoreReadableText(file.path, file.contentType)
-                      ? "readable"
-                      : "stored only"}
-                  </td>
+                  <td>{file.readableByCore ? "readable" : "stored only"}</td>
                   <td>
                     <a
                       href={`/api/workspaces/${workspaceId}/files/${file.id}/download`}
@@ -217,7 +164,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
         </section>
       </div>
 
-      <section className="card" style={{ marginTop: 20 }}>
+      <section className="card with-top-gap">
         <h2>Audit log</h2>
         <table className="table">
           <thead>

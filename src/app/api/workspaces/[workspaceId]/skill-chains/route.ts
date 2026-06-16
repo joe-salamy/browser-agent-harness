@@ -4,55 +4,12 @@ import { requireUserId } from "@/lib/auth";
 import type { SkillChainManifest } from "@/server/skill-chains/types";
 import { runSkillChain } from "@/server/skill-chains/runner";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
+import {
+  optionalJsonBoolean,
+  optionalJsonString,
+  parseJsonObject,
+} from "@/server/request-parsing";
 import { workspaceRouteErrorResponse } from "../../route-errors";
-
-type SkillChainRunBody = {
-  manifest?: unknown;
-  manifestFileId?: string;
-  manifestPath?: string;
-  initialInput?: string;
-  model?: string;
-  resumeStatePath?: string;
-  allowScripts?: boolean;
-};
-
-type SkillChainStringField = Exclude<keyof SkillChainRunBody, "manifest" | "allowScripts">;
-
-function optionalStringField(
-  record: Record<string, unknown>,
-  field: SkillChainStringField,
-): string | undefined {
-  const value = record[field];
-  if (value == null) return undefined;
-  if (typeof value !== "string") throw new Error("Invalid request body.");
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function optionalBooleanField(
-  record: Record<string, unknown>,
-  field: "allowScripts",
-): boolean | undefined {
-  if (!(field in record)) return undefined;
-  const value = record[field];
-  if (typeof value !== "boolean") throw new Error("Invalid request body.");
-  return value;
-}
-
-function parseBody(value: unknown): SkillChainRunBody {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("Invalid request body.");
-  const record = value as Record<string, unknown>;
-  return {
-    manifest: record.manifest,
-    manifestFileId: optionalStringField(record, "manifestFileId"),
-    manifestPath: optionalStringField(record, "manifestPath"),
-    initialInput: optionalStringField(record, "initialInput"),
-    model: optionalStringField(record, "model"),
-    resumeStatePath: optionalStringField(record, "resumeStatePath"),
-    allowScripts: optionalBooleanField(record, "allowScripts"),
-  };
-}
 
 export async function POST(
   request: Request,
@@ -62,17 +19,17 @@ export async function POST(
     const userId = await requireUserId();
     const { workspaceId } = await context.params;
     await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.EDITOR);
-    const body = parseBody(await request.json());
+    const body = parseJsonObject(await request.json());
     const result = await runSkillChain({
       userId,
       workspaceId,
       manifest: body.manifest as SkillChainManifest | undefined,
-      manifestFileId: body.manifestFileId,
-      manifestPath: body.manifestPath,
-      initialInput: body.initialInput,
-      model: body.model,
-      resumeStatePath: body.resumeStatePath,
-      allowScripts: body.allowScripts,
+      manifestFileId: optionalJsonString(body, "manifestFileId"),
+      manifestPath: optionalJsonString(body, "manifestPath"),
+      initialInput: optionalJsonString(body, "initialInput"),
+      model: optionalJsonString(body, "model"),
+      resumeStatePath: optionalJsonString(body, "resumeStatePath"),
+      allowScripts: optionalJsonBoolean(body, "allowScripts"),
     });
     return NextResponse.json(result);
   } catch (error) {

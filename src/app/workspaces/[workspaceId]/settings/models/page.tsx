@@ -18,7 +18,7 @@ export default async function ModelSettingsPage({ params }: Props) {
   const credentials = await listModelCredentials(userId, workspaceId);
 
   return (
-    <main className="container" style={{ padding: "32px 0" }}>
+    <main className="container page">
       <p>
         <Link href={`/workspaces/${workspaceId}`}>← Workspace</Link>
       </p>
@@ -53,7 +53,7 @@ export default async function ModelSettingsPage({ params }: Props) {
           </button>
         </form>
       </section>
-      <section className="card" style={{ marginTop: 20 }}>
+      <section className="card with-top-gap">
         <h2>Saved credentials</h2>
         <table className="table">
           <thead>

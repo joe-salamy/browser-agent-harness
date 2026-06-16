@@ -18,7 +18,7 @@ export default async function McpSettingsPage({ params }: Props) {
   const connections = await listWorkspaceMcpConnections(userId, workspaceId);
 
   return (
-    <main className="container" style={{ padding: "32px 0" }}>
+    <main className="container page">
       <p>
         <Link href={`/workspaces/${workspaceId}`}>← Workspace</Link>
       </p>
@@ -54,7 +54,7 @@ export default async function McpSettingsPage({ params }: Props) {
           </button>
         </form>
       </section>
-      <section className="grid" style={{ marginTop: 20 }}>
+      <section className="grid with-top-gap">
         {connections.map((connection) => (
           <article className="card" key={connection.id}>
             <h2>{connection.name}</h2>

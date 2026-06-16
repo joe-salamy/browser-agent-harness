@@ -1,20 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/auth";
+import { listUserWorkspaces } from "@/server/workspaces/queries";
 import { createWorkspaceAction } from "./actions";
 
 export default async function WorkspacesPage() {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/sign-in");
-  const memberships = await prisma.workspaceMember.findMany({
-    where: { userId },
-    include: { workspace: true },
-    orderBy: { workspace: { updatedAt: "desc" } },
-  });
+  const workspaces = await listUserWorkspaces(userId);
 
   return (
-    <main className="container" style={{ padding: "32px 0" }}>
+    <main className="container page">
       <h1>Workspaces</h1>
       <div className="grid two">
         <section className="card">
@@ -32,17 +28,17 @@ export default async function WorkspacesPage() {
         <section className="card">
           <h2>Your workspaces</h2>
           <div className="grid">
-            {memberships.map(({ workspace, role }) => (
+            {workspaces.map((workspace) => (
               <Link
                 className="card"
                 key={workspace.id}
                 href={`/workspaces/${workspace.id}`}
               >
                 <strong>{workspace.name}</strong>
-                <p className="muted">Role: {role}</p>
+                <p className="muted">Role: {workspace.role}</p>
               </Link>
             ))}
-            {memberships.length === 0 ? (
+            {workspaces.length === 0 ? (
               <p className="muted">No workspaces yet.</p>
             ) : null}
           </div>

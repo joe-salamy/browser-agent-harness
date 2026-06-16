@@ -70,10 +70,7 @@ export function RunForm({
         <fieldset className="grid">
           <legend>Skills</legend>
           {skills.map((skill) => (
-            <label
-              key={skill.id}
-              style={{ display: "flex", gap: 8, alignItems: "center" }}
-            >
+            <label key={skill.id} className="check-row">
               <input type="checkbox" name="skillIds" value={skill.id} />
               <span>
                 {skill.id} — {skill.description}
@@ -84,7 +81,7 @@ export function RunForm({
             <p className="muted">No skills are available.</p>
           ) : null}
         </fieldset>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <label className="check-row">
           <input name="allowScripts" type="checkbox" />
           Allow scripts for skills with entrypoints
         </label>
@@ -105,12 +102,12 @@ export function RunForm({
             </a>
           ) : null}
           {result.errorMessage ? (
-            <span style={{ color: "#b91c1c" }}>{result.errorMessage}</span>
+            <span className="error-text">{result.errorMessage}</span>
           ) : null}
         </p>
       ) : null}
       {error ? (
-        <p role="alert" style={{ color: "#b91c1c" }}>
+        <p role="alert" className="error-text">
           {error}
         </p>
       ) : null}

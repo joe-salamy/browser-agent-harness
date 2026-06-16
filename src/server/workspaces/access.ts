@@ -14,6 +14,11 @@ export class WorkspaceAccessError extends Error {
   }
 }
 
+export type WorkspaceMembershipAccess = {
+  workspace: Workspace;
+  role: WorkspaceRole;
+};
+
 export function hasRoleAtLeast(
   actual: WorkspaceRole,
   minimumRole: WorkspaceRole,
@@ -21,11 +26,11 @@ export function hasRoleAtLeast(
   return ROLE_RANK[actual] >= ROLE_RANK[minimumRole];
 }
 
-export async function assertWorkspaceAccess(
+export async function requireWorkspaceMembership(
   userId: string,
   workspaceId: string,
   minimumRole: WorkspaceRole,
-): Promise<Workspace> {
+): Promise<WorkspaceMembershipAccess> {
   const member = await prisma.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
     include: { workspace: true },
@@ -35,5 +40,18 @@ export async function assertWorkspaceAccess(
     throw new WorkspaceAccessError();
   }
 
-  return member.workspace;
+  return { workspace: member.workspace, role: member.role };
+}
+
+export async function assertWorkspaceAccess(
+  userId: string,
+  workspaceId: string,
+  minimumRole: WorkspaceRole,
+): Promise<Workspace> {
+  const { workspace } = await requireWorkspaceMembership(
+    userId,
+    workspaceId,
+    minimumRole,
+  );
+  return workspace;
 }

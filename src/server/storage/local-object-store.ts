@@ -65,18 +65,4 @@ export class LocalObjectStore implements ObjectStore {
   async deleteObject(input: { key: string }): Promise<void> {
     await rm(localPathForKey(input.key), { force: true });
   }
-
-  async createSignedDownloadUrl(input: {
-    key: string;
-    filename: string;
-    contentType: string;
-  }): Promise<string> {
-    localPathForKey(input.key);
-    const params = new URLSearchParams({
-      key: input.key,
-      filename: input.filename,
-      contentType: input.contentType,
-    });
-    return `/api/object-download?${params.toString()}`;
-  }
 }

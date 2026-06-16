@@ -11,9 +11,4 @@ export interface ObjectStore {
     endInclusive: number;
   }): Promise<Buffer>;
   deleteObject(input: { key: string }): Promise<void>;
-  createSignedDownloadUrl(input: {
-    key: string;
-    filename: string;
-    contentType: string;
-  }): Promise<string>;
 }

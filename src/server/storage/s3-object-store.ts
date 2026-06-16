@@ -4,7 +4,6 @@ import {
   DeleteObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { ObjectStore } from "@/server/storage/object-store";
 
 function boolEnv(value: string | undefined): boolean {
@@ -84,19 +83,5 @@ export class S3ObjectStore implements ObjectStore {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: input.key }),
     );
-  }
-
-  async createSignedDownloadUrl(input: {
-    key: string;
-    filename: string;
-    contentType: string;
-  }): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: input.key,
-      ResponseContentType: input.contentType,
-      ResponseContentDisposition: `attachment; filename="${input.filename.replaceAll('"', "")}"`,
-    });
-    return getSignedUrl(this.client, command, { expiresIn: 300 });
   }
 }

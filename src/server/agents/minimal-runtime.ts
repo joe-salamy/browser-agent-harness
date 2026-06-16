@@ -14,7 +14,7 @@ import {
   isCoreReadableText,
   listWorkspaceFiles,
   normalizeWorkspacePath,
-  readWorkspaceTextFile,
+  readWorkspaceTextFileCapped,
 } from "@/server/workspaces/files";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
@@ -107,27 +107,33 @@ export class MinimalAgentRuntime implements AgentRuntime {
       let usedChars = 0;
       let truncated = false;
 
-      for (const file of files) {
-        if (!isCoreReadableText(file.path, file.contentType)) continue;
-        const { text } = await readWorkspaceTextFile(
-          input.userId,
-          input.workspaceId,
-          file.id,
-        );
+      const readableFiles = files.filter((file) =>
+        isCoreReadableText(file.path, file.contentType),
+      );
+      for (let index = 0; index < readableFiles.length; index += 1) {
+        const file = readableFiles[index];
         const remaining = MAX_INLINE_CONTEXT_CHARS - usedChars;
         if (remaining <= 0) {
           truncated = true;
           break;
         }
-        const slice = text.length > remaining ? text.slice(0, remaining) : text;
-        const isTruncatedFile = slice.length < text.length;
+        const read = await readWorkspaceTextFileCapped(
+          input.userId,
+          input.workspaceId,
+          file.id,
+          remaining,
+        );
         contentBlocks.push({
           path: file.path,
-          text: slice,
-          truncated: isTruncatedFile,
+          text: read.text,
+          truncated: read.truncated,
         });
-        usedChars += slice.length;
-        if (slice.length < text.length) {
+        usedChars += read.text.length;
+        const hasUnreadReadableFiles = index < readableFiles.length - 1;
+        if (
+          read.truncated ||
+          (usedChars >= MAX_INLINE_CONTEXT_CHARS && hasUnreadReadableFiles)
+        ) {
           truncated = true;
           break;
         }

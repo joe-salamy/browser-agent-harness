@@ -33,6 +33,23 @@ select {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
 }
+.page {
+  padding-block: 32px;
+}
+.with-top-gap {
+  margin-top: 20px;
+}
+.align-start {
+  align-items: start;
+}
+.check-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.error-text {
+  color: #b91c1c;
+}
 .card {
   background: var(--card);
   border: 1px solid var(--border);

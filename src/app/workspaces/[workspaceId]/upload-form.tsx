@@ -28,7 +28,7 @@ export function UploadForm({ workspaceId }: { workspaceId: string }) {
           }
           setMessage("Uploaded.");
           form.reset();
-          window.location.reload();
+          window.dispatchEvent(new Event("workspace-updated"));
         });
       }}
     >

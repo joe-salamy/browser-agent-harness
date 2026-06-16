@@ -151,6 +151,7 @@ Use `npm run skill-chain:create` to generate a validated manifest from a goal. T
 | `npm run build`              | `next build`                                                                                       | Build the Next.js app.                       |
 | `npm run start`              | `next start`                                                                                       | Serve a production build.                    |
 | `npm run lint`               | `eslint .`                                                                                         | Run lint checks.                             |
+| `npm run typecheck`          | `tsc --noEmit`                                                                                     | Run TypeScript type checks without building. |
 | `npm run test`               | `vitest run`                                                                                       | Run unit/integration tests once.             |
 | `npm run test:watch`         | `vitest`                                                                                           | Run Vitest in watch mode.                    |
 | `npm run test:e2e`           | `playwright test`                                                                                  | Run Playwright end-to-end tests.             |
