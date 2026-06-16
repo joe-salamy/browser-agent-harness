@@ -5,6 +5,7 @@
 The requested end state is: no Docker requirement for this repo, and no remaining Docker references in repo files, filenames, or docs. The best Docker-free default for this codebase is native PostgreSQL 16 on Windows plus the existing local `.data/object-store` file storage path. Keep hosted PostgreSQL as the documented fallback for machines where installing PostgreSQL locally is undesirable; do not add a hosted object-store dependency because `src/server/storage/index.ts` already selects `LocalObjectStore` when `S3_ENDPOINT` is unset.
 
 Confirmed facts:
+
 - `docker-compose.yml` exists only to run PostgreSQL 16 plus MinIO/MinIO init.
 - `.env.example` currently includes a localhost `DATABASE_URL` plus MinIO-style `S3_*` variables; those `S3_*` variables make `getObjectStore()` choose `S3ObjectStore`.
 - `src/server/storage/index.ts` returns `new LocalObjectStore()` when `process.env.S3_ENDPOINT` is unset.

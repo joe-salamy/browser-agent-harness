@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 
-type RunResult = { runId: string; status: "SUCCEEDED" | "FAILED"; outputFileId?: string; errorMessage?: string };
+type RunResult = {
+  runId: string;
+  status: "SUCCEEDED" | "FAILED";
+  outputFileId?: string;
+  errorMessage?: string;
+};
 
 export function RunForm({ workspaceId }: { workspaceId: string }) {
   const [result, setResult] = useState<RunResult | null>(null);
@@ -29,7 +34,13 @@ export function RunForm({ workspaceId }: { workspaceId: string }) {
         onSubmit={(event) => {
           event.preventDefault();
           const formData = new FormData(event.currentTarget);
-          startTransition(() => void submit(`/api/workspaces/${workspaceId}/agent-runs`, formData));
+          startTransition(
+            () =>
+              void submit(
+                `/api/workspaces/${workspaceId}/agent-runs`,
+                formData,
+              ),
+          );
         }}
       >
         <label>
@@ -38,30 +49,66 @@ export function RunForm({ workspaceId }: { workspaceId: string }) {
         </label>
         <label>
           Model
-          <input className="input" name="model" defaultValue="openai/gpt-4.1-mini" />
+          <input
+            className="input"
+            name="model"
+            defaultValue="openai/gpt-4.1-mini"
+          />
         </label>
-        <button className="btn" type="submit" disabled={isPending}>{isPending ? "Running..." : "Run agent"}</button>
+        <button className="btn" type="submit" disabled={isPending}>
+          {isPending ? "Running..." : "Run agent"}
+        </button>
       </form>
 
       <form
         onSubmit={(event) => {
           event.preventDefault();
           const formData = new FormData(event.currentTarget);
-          startTransition(() => void submit(`/api/workspaces/${workspaceId}/skills/core.research-synthesis`, formData));
+          startTransition(
+            () =>
+              void submit(
+                `/api/workspaces/${workspaceId}/skills/core.research-synthesis`,
+                formData,
+              ),
+          );
         }}
       >
-        <input className="input" name="prompt" placeholder="Optional skill focus" />
-        <button className="btn secondary" type="submit" disabled={isPending} style={{ marginTop: 8 }}>Run Research Synthesis skill</button>
+        <input
+          className="input"
+          name="prompt"
+          placeholder="Optional skill focus"
+        />
+        <button
+          className="btn secondary"
+          type="submit"
+          disabled={isPending}
+          style={{ marginTop: 8 }}
+        >
+          Run Research Synthesis skill
+        </button>
       </form>
 
       {result ? (
         <p>
           Status: <strong>{result.status}</strong>{" "}
-          {result.outputFileId ? <a className="badge" href={`/workspaces/${workspaceId}?fileId=${result.outputFileId}`}>Open output file</a> : null}
-          {result.errorMessage ? <span style={{ color: "#b91c1c" }}>{result.errorMessage}</span> : null}
+          {result.outputFileId ? (
+            <a
+              className="badge"
+              href={`/workspaces/${workspaceId}?fileId=${result.outputFileId}`}
+            >
+              Open output file
+            </a>
+          ) : null}
+          {result.errorMessage ? (
+            <span style={{ color: "#b91c1c" }}>{result.errorMessage}</span>
+          ) : null}
         </p>
       ) : null}
-      {error ? <p role="alert" style={{ color: "#b91c1c" }}>{error}</p> : null}
+      {error ? (
+        <p role="alert" style={{ color: "#b91c1c" }}>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

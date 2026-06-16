@@ -3,19 +3,35 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUserId } from "@/lib/auth";
-import { saveOpenRouterCredential, revokeModelCredential } from "@/server/models/credentials";
-import { createMcpConnection, setMcpToolPermission } from "@/server/mcp/registry";
-import { createWorkspace, updateWorkspaceInstructions } from "@/server/workspaces/mutations";
+import {
+  saveOpenRouterCredential,
+  revokeModelCredential,
+} from "@/server/models/credentials";
+import {
+  createMcpConnection,
+  setMcpToolPermission,
+} from "@/server/mcp/registry";
+import {
+  createWorkspace,
+  updateWorkspaceInstructions,
+} from "@/server/workspaces/mutations";
 import { writeWorkspaceTextFile } from "@/server/workspaces/files";
 
 export async function createWorkspaceAction(formData: FormData): Promise<void> {
-  const { id } = await createWorkspace({ name: String(formData.get("name") ?? "") });
+  const { id } = await createWorkspace({
+    name: String(formData.get("name") ?? ""),
+  });
   redirect(`/workspaces/${id}`);
 }
 
-export async function updateInstructionsAction(formData: FormData): Promise<void> {
+export async function updateInstructionsAction(
+  formData: FormData,
+): Promise<void> {
   const workspaceId = String(formData.get("workspaceId") ?? "");
-  await updateWorkspaceInstructions({ workspaceId, instructions: String(formData.get("instructions") ?? "") });
+  await updateWorkspaceInstructions({
+    workspaceId,
+    instructions: String(formData.get("instructions") ?? ""),
+  });
   revalidatePath(`/workspaces/${workspaceId}`);
 }
 
@@ -31,7 +47,9 @@ export async function saveTextFileAction(formData: FormData): Promise<void> {
   revalidatePath(`/workspaces/${workspaceId}`);
 }
 
-export async function saveModelCredentialAction(formData: FormData): Promise<void> {
+export async function saveModelCredentialAction(
+  formData: FormData,
+): Promise<void> {
   const userId = await requireUserId();
   const workspaceId = String(formData.get("workspaceId") ?? "");
   await saveOpenRouterCredential({
@@ -44,14 +62,22 @@ export async function saveModelCredentialAction(formData: FormData): Promise<voi
   revalidatePath(`/workspaces/${workspaceId}/settings/models`);
 }
 
-export async function revokeModelCredentialAction(formData: FormData): Promise<void> {
+export async function revokeModelCredentialAction(
+  formData: FormData,
+): Promise<void> {
   const userId = await requireUserId();
   const workspaceId = String(formData.get("workspaceId") ?? "");
-  await revokeModelCredential({ userId, workspaceId, credentialId: String(formData.get("credentialId") ?? "") });
+  await revokeModelCredential({
+    userId,
+    workspaceId,
+    credentialId: String(formData.get("credentialId") ?? ""),
+  });
   revalidatePath(`/workspaces/${workspaceId}/settings/models`);
 }
 
-export async function createMcpConnectionAction(formData: FormData): Promise<void> {
+export async function createMcpConnectionAction(
+  formData: FormData,
+): Promise<void> {
   const userId = await requireUserId();
   const workspaceId = String(formData.get("workspaceId") ?? "");
   await createMcpConnection({
@@ -64,7 +90,9 @@ export async function createMcpConnectionAction(formData: FormData): Promise<voi
   revalidatePath(`/workspaces/${workspaceId}/settings/mcp`);
 }
 
-export async function setMcpPermissionAction(formData: FormData): Promise<void> {
+export async function setMcpPermissionAction(
+  formData: FormData,
+): Promise<void> {
   const userId = await requireUserId();
   const workspaceId = String(formData.get("workspaceId") ?? "");
   await setMcpToolPermission({

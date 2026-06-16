@@ -10,20 +10,34 @@ export const BUILT_IN_SKILLS = {
   "core.research-synthesis": {
     id: "core.research-synthesis",
     name: "Research Synthesis",
-    description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
-    requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
+    description:
+      "Synthesizes supported workspace text files into a sourced Markdown summary.",
+    requiredPermissions: [
+      "files:read",
+      "files:write",
+      "models:generate",
+    ] as const,
   },
   "core.web-search-grounding": {
     id: "core.web-search-grounding",
     name: "Web Search & Grounding",
     description: "Fetches web search context before running the minimal agent.",
-    requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
+    requiredPermissions: [
+      "files:read",
+      "files:write",
+      "models:generate",
+    ] as const,
   },
   "core.chain-builder": {
     id: "core.chain-builder",
     name: "Chain Builder",
-    description: "Creates validated JSON skill-chain manifests from a user goal.",
-    requiredPermissions: ["files:read", "files:write", "models:generate"] as const,
+    description:
+      "Creates validated JSON skill-chain manifests from a user goal.",
+    requiredPermissions: [
+      "files:read",
+      "files:write",
+      "models:generate",
+    ] as const,
   },
 } as const;
 
@@ -43,7 +57,11 @@ export async function runSkill(input: {
 }): Promise<AgentRunResult> {
   if (!isBuiltInSkillId(input.skillId)) throw new Error("Unknown skill.");
   const skill = BUILT_IN_SKILLS[input.skillId];
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.EDITOR,
+  );
   await writeAuditLog({
     workspaceId: input.workspaceId,
     actorUserId: input.userId,

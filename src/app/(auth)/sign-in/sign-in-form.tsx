@@ -28,21 +28,41 @@ export function SignInForm() {
             setError("Invalid email or password.");
             return;
           }
-          router.push(getSafeSignInCallbackUrl(searchParams.get("callbackUrl")));
+          router.push(
+            getSafeSignInCallbackUrl(searchParams.get("callbackUrl")),
+          );
           router.refresh();
         });
       }}
     >
       <label>
         Email
-        <input className="input" name="email" type="email" defaultValue="demo@example.com" required />
+        <input
+          className="input"
+          name="email"
+          type="email"
+          defaultValue="demo@example.com"
+          required
+        />
       </label>
       <label>
         Password
-        <input className="input" name="password" type="password" defaultValue="demo-password" required />
+        <input
+          className="input"
+          name="password"
+          type="password"
+          defaultValue="demo-password"
+          required
+        />
       </label>
-      {error ? <p role="alert" style={{ color: "#b91c1c" }}>{error}</p> : null}
-      <button className="btn" type="submit" disabled={isPending}>{isPending ? "Signing in..." : "Sign in"}</button>
+      {error ? (
+        <p role="alert" style={{ color: "#b91c1c" }}>
+          {error}
+        </p>
+      ) : null}
+      <button className="btn" type="submit" disabled={isPending}>
+        {isPending ? "Signing in..." : "Sign in"}
+      </button>
     </form>
   );
 }

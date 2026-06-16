@@ -4,7 +4,10 @@ import bcrypt from "bcryptjs";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "../src/lib/db";
 import { writeAuditLog } from "../src/server/audit/log";
-import { createMcpConnection, setMcpToolPermission } from "../src/server/mcp/registry";
+import {
+  createMcpConnection,
+  setMcpToolPermission,
+} from "../src/server/mcp/registry";
 import { createWorkspaceFile } from "../src/server/workspaces/files";
 
 const DEMOS = [
@@ -33,7 +36,8 @@ const DEMOS = [
   },
   {
     name: "Campaign Planning Demo",
-    instructions: "Use source notes to produce concise, grounded campaign planning output.",
+    instructions:
+      "Use source notes to produce concise, grounded campaign planning output.",
     files: [
       "marketing-campaign/product-notes.md",
       "marketing-campaign/audience-notes.md",
@@ -43,7 +47,8 @@ const DEMOS = [
   },
   {
     name: "Internal Ops MCP Demo",
-    instructions: "Track registered tools and permission decisions before any invocation is enabled.",
+    instructions:
+      "Track registered tools and permission decisions before any invocation is enabled.",
     files: ["internal-ops/operating-procedure.md"],
   },
 ];
@@ -55,10 +60,19 @@ const CONTENT_TYPES: Record<string, string> = {
   ".txt": "text/plain",
 };
 
-async function ensureWorkspace(userId: string, name: string, instructions: string) {
-  const existing = await prisma.workspace.findFirst({ where: { name, ownerId: userId } });
+async function ensureWorkspace(
+  userId: string,
+  name: string,
+  instructions: string,
+) {
+  const existing = await prisma.workspace.findFirst({
+    where: { name, ownerId: userId },
+  });
   if (existing) {
-    await prisma.workspace.update({ where: { id: existing.id }, data: { instructions } });
+    await prisma.workspace.update({
+      where: { id: existing.id },
+      data: { instructions },
+    });
     await prisma.workspaceMember.upsert({
       where: { workspaceId_userId: { workspaceId: existing.id, userId } },
       create: { workspaceId: existing.id, userId, role: WorkspaceRole.OWNER },
@@ -87,12 +101,27 @@ async function ensureWorkspace(userId: string, name: string, instructions: strin
   return workspace;
 }
 
-async function seedFile(userId: string, workspaceId: string, relativePath: string): Promise<void> {
-  const existing = await prisma.workspaceFile.findFirst({ where: { workspaceId, path: relativePath, deletedAt: null } });
+async function seedFile(
+  userId: string,
+  workspaceId: string,
+  relativePath: string,
+): Promise<void> {
+  const existing = await prisma.workspaceFile.findFirst({
+    where: { workspaceId, path: relativePath, deletedAt: null },
+  });
   if (existing) return;
-  const bytes = await readFile(path.join(process.cwd(), "prisma", "demo-data", relativePath));
-  const contentType = CONTENT_TYPES[path.extname(relativePath)] ?? "application/octet-stream";
-  await createWorkspaceFile({ userId, workspaceId, path: relativePath, bytes, contentType });
+  const bytes = await readFile(
+    path.join(process.cwd(), "prisma", "demo-data", relativePath),
+  );
+  const contentType =
+    CONTENT_TYPES[path.extname(relativePath)] ?? "application/octet-stream";
+  await createWorkspaceFile({
+    userId,
+    workspaceId,
+    path: relativePath,
+    bytes,
+    contentType,
+  });
 }
 
 async function main() {
@@ -104,10 +133,17 @@ async function main() {
   });
 
   for (const demo of DEMOS) {
-    const workspace = await ensureWorkspace(user.id, demo.name, demo.instructions);
+    const workspace = await ensureWorkspace(
+      user.id,
+      demo.name,
+      demo.instructions,
+    );
     for (const file of demo.files) await seedFile(user.id, workspace.id, file);
 
-    if (demo.name === "Internal Ops MCP Demo" && process.env.NODE_ENV !== "production") {
+    if (
+      demo.name === "Internal Ops MCP Demo" &&
+      process.env.NODE_ENV !== "production"
+    ) {
       const existing = await prisma.mcpConnection.findFirst({
         where: { workspaceId: workspace.id, name: "Demo Knowledge Source" },
       });

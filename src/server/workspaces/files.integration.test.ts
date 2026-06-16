@@ -2,7 +2,13 @@ import crypto from "crypto";
 import { describe, expect, it } from "vitest";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createWorkspaceFile, getWorkspaceFileByPath, readWorkspaceTextFile, UnsupportedTextFileError, writeWorkspaceTextFile } from "./files";
+import {
+  createWorkspaceFile,
+  getWorkspaceFileByPath,
+  readWorkspaceTextFile,
+  UnsupportedTextFileError,
+  writeWorkspaceTextFile,
+} from "./files";
 
 const dbDescribe = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -16,7 +22,9 @@ dbDescribe("workspace file persistence invariants", () => {
       bytes: Buffer.from("%PDF"),
       contentType: "application/pdf",
     });
-    await expect(readWorkspaceTextFile(userId, workspaceId, file.id)).rejects.toBeInstanceOf(UnsupportedTextFileError);
+    await expect(
+      readWorkspaceTextFile(userId, workspaceId, file.id),
+    ).rejects.toBeInstanceOf(UnsupportedTextFileError);
   });
 
   it("creates monotonically increasing versions with previous version ids", async () => {
@@ -28,9 +36,21 @@ dbDescribe("workspace file persistence invariants", () => {
       bytes: Buffer.from("one"),
       contentType: "text/markdown",
     });
-    const first = await prisma.workspaceFile.findUniqueOrThrow({ where: { id: file.id } });
-    const second = await writeWorkspaceTextFile({ userId, workspaceId, fileId: file.id, text: "two" });
-    const third = await writeWorkspaceTextFile({ userId, workspaceId, fileId: file.id, text: "three" });
+    const first = await prisma.workspaceFile.findUniqueOrThrow({
+      where: { id: file.id },
+    });
+    const second = await writeWorkspaceTextFile({
+      userId,
+      workspaceId,
+      fileId: file.id,
+      text: "two",
+    });
+    const third = await writeWorkspaceTextFile({
+      userId,
+      workspaceId,
+      fileId: file.id,
+      text: "three",
+    });
 
     expect(second.versionNumber).toBe(2);
     expect(second.previousVersionId).toBe(first.currentVersionId);
@@ -48,14 +68,20 @@ dbDescribe("workspace file persistence invariants", () => {
       contentType: "application/json",
     });
 
-    const found = await getWorkspaceFileByPath(userId, workspaceId, "./chains//manifest.json");
+    const found = await getWorkspaceFileByPath(
+      userId,
+      workspaceId,
+      "./chains//manifest.json",
+    );
 
     expect(found?.id).toBe(file.id);
     expect(found?.currentVersion?.sizeBytes).toBe(2);
   });
 });
 
-async function createFixture(label: string): Promise<{ userId: string; workspaceId: string }> {
+async function createFixture(
+  label: string,
+): Promise<{ userId: string; workspaceId: string }> {
   const email = `${label}-${crypto.randomUUID()}@example.com`;
   const user = await prisma.user.create({ data: { email } });
   const workspace = await prisma.workspace.create({

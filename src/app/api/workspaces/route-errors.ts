@@ -8,13 +8,22 @@ export function workspaceRouteErrorResponse(
   fallbackMessage: string,
   fallbackStatus: number,
 ): NextResponse<{ error: string }> {
-  if (error instanceof Error && error.message === AUTHENTICATION_REQUIRED_MESSAGE) {
-    return NextResponse.json({ error: AUTHENTICATION_REQUIRED_MESSAGE }, { status: 401 });
+  if (
+    error instanceof Error &&
+    error.message === AUTHENTICATION_REQUIRED_MESSAGE
+  ) {
+    return NextResponse.json(
+      { error: AUTHENTICATION_REQUIRED_MESSAGE },
+      { status: 401 },
+    );
   }
 
   if (error instanceof WorkspaceAccessError) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  return NextResponse.json({ error: fallbackMessage }, { status: fallbackStatus });
+  return NextResponse.json(
+    { error: fallbackMessage },
+    { status: fallbackStatus },
+  );
 }

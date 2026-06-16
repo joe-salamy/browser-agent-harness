@@ -6,11 +6,15 @@ let store: ObjectStore | undefined;
 
 export function getObjectStore(): ObjectStore {
   if (!store) {
-    store = process.env.S3_ENDPOINT ? new S3ObjectStore() : new LocalObjectStore();
+    store = process.env.S3_ENDPOINT
+      ? new S3ObjectStore()
+      : new LocalObjectStore();
   }
   return store;
 }
 
-export function setObjectStoreForTests(nextStore: ObjectStore | undefined): void {
+export function setObjectStoreForTests(
+  nextStore: ObjectStore | undefined,
+): void {
   store = nextStore;
 }

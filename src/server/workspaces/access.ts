@@ -14,7 +14,10 @@ export class WorkspaceAccessError extends Error {
   }
 }
 
-export function hasRoleAtLeast(actual: WorkspaceRole, minimumRole: WorkspaceRole): boolean {
+export function hasRoleAtLeast(
+  actual: WorkspaceRole,
+  minimumRole: WorkspaceRole,
+): boolean {
   return ROLE_RANK[actual] >= ROLE_RANK[minimumRole];
 }
 

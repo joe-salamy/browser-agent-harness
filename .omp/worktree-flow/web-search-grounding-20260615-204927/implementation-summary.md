@@ -1,12 +1,14 @@
 # Implementation Summary
 
 ## Plan
+
 - Plan path: `.omp/worktree-flow/context/plan.md`
 - Worktree path: `C:/Users/joesa/Code/browser-agent-harness-context`
 - Branch: `feature/context`
 - Commit SHA: `8b7a84b38a80ae5b43b10c3a51c837ba32677072`
 
 ## Changed Files
+
 - `.env.example`
 - `src/server/skills/web-search.ts`
 - `src/server/skills/web-search.test.ts`
@@ -18,6 +20,7 @@
 - `src/server/skill-chains/builder.test.ts`
 
 ## Behavior Changes
+
 - Added `TAVILY_API_KEY=""` to `.env.example`.
 - Added `runWebSearchGroundingSkill` in `src/server/skills/web-search.ts`.
   - Requires a non-empty prompt and configured `TAVILY_API_KEY`.
@@ -33,6 +36,7 @@
 - Changed the Chain Builder system prompt to derive allowed executable IDs from `EXECUTABLE_CHAIN_SKILL_IDS.join(", ")`, so the prompt and manifest validator share one allowlist.
 
 ## Tests and Checks Run
+
 - Initial `npm test -- src/server/skills/web-search.test.ts src/server/skills/registry.test.ts src/server/skill-chains/builder.test.ts src/server/skill-chains/types.test.ts` failed before dependency setup because `vitest` was not installed/resolved.
 - Ran `npm install` because `package-lock.json` existed and `node_modules` was absent.
 - Second focused test run failed because Prisma Client had not been generated after dependency install.
@@ -45,10 +49,12 @@
   - Result: passed.
 
 ## Skipped Checks
+
 - Did not run the plan's live Tavily/UI verification because no real `TAVILY_API_KEY` was available in the worktree environment and live external calls would depend on third-party service state.
 - Did not run the full test suite beyond the focused changed areas; the focused skill, registry, chain-builder, and manifest tests plus typecheck/lint cover the implementation seams changed here.
 
 ## Implementation Decisions and Tradeoffs
+
 - Tavily API-key absence fails before the model query-generation call to avoid spending model tokens when search cannot run.
 - Model provider call failures remain fatal; only invalid query JSON falls back as specified by the plan.
 - Tavily failures remain fatal with the HTTP status in the error message, matching the plan's clear-failure contingency.
@@ -57,6 +63,7 @@
 - Result content is capped at 1,500 characters per result to avoid bloating the downstream minimal runtime prompt while preserving answer/title/URL/source snippets.
 
 ## Assumptions, Blockers, Risks, Follow-up
+
 - Assumption: Tavily's `/search` endpoint accepts the JSON POST body used here: `api_key`, `query`, `include_answer`, `max_results`.
 - Assumption: The existing default model provider is the correct model source for query generation, and the existing `model` override should apply consistently with chain-builder/minimal-runtime behavior.
 - Residual risk: Live Tavily response shape may include fields beyond the tested subset; the parser intentionally ignores unknown fields and tolerates missing answer/results.

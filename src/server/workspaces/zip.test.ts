@@ -3,7 +3,9 @@ import { createZip } from "./zip";
 
 describe("workspace ZIP export paths", () => {
   it("creates archives for canonical workspace-relative entries", () => {
-    const archive = createZip([{ path: "folder/notes.md", bytes: Buffer.from("hello") }]);
+    const archive = createZip([
+      { path: "folder/notes.md", bytes: Buffer.from("hello") },
+    ]);
 
     expect(archive.subarray(0, 4).toString("hex")).toBe("504b0304");
     expect(archive.includes(Buffer.from("folder/notes.md"))).toBe(true);
@@ -19,10 +21,9 @@ describe("workspace ZIP export paths", () => {
     "C:drive.txt",
     "folder/C:drive.txt",
     "line\nbreak.txt",
-  ])(
-    "rejects unsafe ZIP entry path %s",
-    (entryPath) => {
-      expect(() => createZip([{ path: entryPath, bytes: Buffer.alloc(0) }])).toThrow();
-    },
-  );
+  ])("rejects unsafe ZIP entry path %s", (entryPath) => {
+    expect(() =>
+      createZip([{ path: entryPath, bytes: Buffer.alloc(0) }]),
+    ).toThrow();
+  });
 });

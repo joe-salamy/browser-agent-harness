@@ -2,7 +2,10 @@ import { readFile } from "fs/promises";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { runSkillChain } from "@/server/skill-chains/runner";
-import { type SkillChainManifest, parseSkillChainManifest } from "@/server/skill-chains/types";
+import {
+  type SkillChainManifest,
+  parseSkillChainManifest,
+} from "@/server/skill-chains/types";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
 type ParsedArgs = {
@@ -20,7 +23,9 @@ type ParsedArgs = {
 };
 
 function shellQuote(value: string): string {
-  return process.platform === "win32" ? `'${value.replaceAll("'", "''")}'` : `'${value.replaceAll("'", "'\\''")}'`;
+  return process.platform === "win32"
+    ? `'${value.replaceAll("'", "''")}'`
+    : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function formatSkillChainCommand(args: Record<string, string>): string {
@@ -29,7 +34,10 @@ function formatSkillChainCommand(args: Record<string, string>): string {
     "run",
     "skill-chain",
     "--",
-    ...Object.entries(args).flatMap(([name, value]) => [`--${name}`, shellQuote(value)]),
+    ...Object.entries(args).flatMap(([name, value]) => [
+      `--${name}`,
+      shellQuote(value),
+    ]),
   ].join(" ");
 }
 
@@ -42,7 +50,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
     const value = argv[index + 1];
-    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}.`);
+    if (!value || value.startsWith("--"))
+      throw new Error(`Missing value for ${arg}.`);
     index += 1;
     switch (arg) {
       case "--manifest":
@@ -82,17 +91,26 @@ function parseArgs(argv: string[]): ParsedArgs {
   return args;
 }
 
-async function resolveUserWorkspace(args: ParsedArgs): Promise<{ userId: string; workspaceId: string; userEmail: string }> {
+async function resolveUserWorkspace(
+  args: ParsedArgs,
+): Promise<{ userId: string; workspaceId: string; userEmail: string }> {
   if (!args.userEmail) throw new Error("--user-email is required.");
   if ((args.workspaceId ? 1 : 0) + (args.workspaceName ? 1 : 0) !== 1) {
-    throw new Error("Provide exactly one of --workspace-id or --workspace-name.");
+    throw new Error(
+      "Provide exactly one of --workspace-id or --workspace-name.",
+    );
   }
-  const user = await prisma.user.findUnique({ where: { email: args.userEmail } });
+  const user = await prisma.user.findUnique({
+    where: { email: args.userEmail },
+  });
   if (!user?.email) throw new Error(`User not found: ${args.userEmail}.`);
   const workspace = args.workspaceId
     ? await prisma.workspace.findUnique({ where: { id: args.workspaceId } })
     : await prisma.workspace.findFirst({
-        where: { name: args.workspaceName, members: { some: { userId: user.id } } },
+        where: {
+          name: args.workspaceName,
+          members: { some: { userId: user.id } },
+        },
         orderBy: { createdAt: "desc" },
       });
   if (!workspace) throw new Error("Workspace not found.");
@@ -100,30 +118,43 @@ async function resolveUserWorkspace(args: ParsedArgs): Promise<{ userId: string;
   return { userId: user.id, workspaceId: workspace.id, userEmail: user.email };
 }
 
-async function readManifest(args: ParsedArgs): Promise<SkillChainManifest | undefined> {
+async function readManifest(
+  args: ParsedArgs,
+): Promise<SkillChainManifest | undefined> {
   if (!args.manifest) return undefined;
-  return parseSkillChainManifest(JSON.parse(await readFile(args.manifest, "utf8")));
+  return parseSkillChainManifest(
+    JSON.parse(await readFile(args.manifest, "utf8")),
+  );
 }
 
 async function readInitialInput(args: ParsedArgs): Promise<string | undefined> {
   if ((args.input ? 1 : 0) + (args.inputFile ? 1 : 0) === 0) return undefined;
-  if ((args.input ? 1 : 0) + (args.inputFile ? 1 : 0) !== 1) throw new Error("Provide exactly one of --input or --input-file.");
-  const input = args.input ?? (await readFile(args.inputFile as string, "utf8"));
+  if ((args.input ? 1 : 0) + (args.inputFile ? 1 : 0) !== 1)
+    throw new Error("Provide exactly one of --input or --input-file.");
+  const input =
+    args.input ?? (await readFile(args.inputFile as string, "utf8"));
   const trimmed = input.trim();
   if (!trimmed) throw new Error("Initial input is required.");
   return trimmed;
 }
 
 function validateMode(args: ParsedArgs): void {
-  const manifestSources = (args.manifest ? 1 : 0) + (args.manifestWorkspacePath ? 1 : 0) + (args.manifestFileId ? 1 : 0);
+  const manifestSources =
+    (args.manifest ? 1 : 0) +
+    (args.manifestWorkspacePath ? 1 : 0) +
+    (args.manifestFileId ? 1 : 0);
   const inputSources = (args.input ? 1 : 0) + (args.inputFile ? 1 : 0);
   if (args.resumeStatePath) {
-    if (inputSources > 0) throw new Error("Resume does not accept --input or --input-file.");
-    if (manifestSources > 1) throw new Error("Resume accepts at most one manifest source.");
+    if (inputSources > 0)
+      throw new Error("Resume does not accept --input or --input-file.");
+    if (manifestSources > 1)
+      throw new Error("Resume accepts at most one manifest source.");
     return;
   }
-  if (manifestSources !== 1) throw new Error("New runs require exactly one manifest source.");
-  if (inputSources !== 1) throw new Error("New runs require exactly one input source.");
+  if (manifestSources !== 1)
+    throw new Error("New runs require exactly one manifest source.");
+  if (inputSources !== 1)
+    throw new Error("New runs require exactly one input source.");
 }
 
 async function main(): Promise<void> {
@@ -155,7 +186,9 @@ async function main(): Promise<void> {
   console.log("Artifacts:");
   for (const step of result.steps) {
     if (step.status === "SUCCEEDED" && step.outputFileId) {
-      console.log(`- ${step.id}: ${step.outputPath} (fileId: ${step.outputFileId})`);
+      console.log(
+        `- ${step.id}: ${step.outputPath} (fileId: ${step.outputFileId})`,
+      );
     }
   }
   if (result.status === "FAILED" || result.status === "WAITING_FOR_INPUT") {
@@ -172,7 +205,9 @@ async function main(): Promise<void> {
 
 main()
   .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : "Skill chain run failed.");
+    console.error(
+      error instanceof Error ? error.message : "Skill chain run failed.",
+    );
     process.exitCode = 1;
   })
   .finally(async () => {

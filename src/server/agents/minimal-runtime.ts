@@ -1,7 +1,12 @@
 import { AgentRunStatus, ModelProvider, WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
-import type { AgentRunRequest, AgentRunResult, AgentRuntime, AgentSupplementalContext } from "@/server/agents/runtime";
+import type {
+  AgentRunRequest,
+  AgentRunResult,
+  AgentRuntime,
+  AgentSupplementalContext,
+} from "@/server/agents/runtime";
 import { getDefaultModelProvider } from "@/server/models/credentials";
 import { resolveOpenRouterModel } from "@/server/models/openrouter";
 import {
@@ -60,8 +65,14 @@ export class MinimalAgentRuntime implements AgentRuntime {
     const prompt = input.prompt.trim();
     if (!prompt) throw new Error("Prompt is required.");
     const modelName = resolveOpenRouterModel(input.model);
-    const workspace = await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
-    const requestedOutputPath = input.outputPath ? normalizeWorkspacePath(input.outputPath) : undefined;
+    const workspace = await assertWorkspaceAccess(
+      input.userId,
+      input.workspaceId,
+      WorkspaceRole.EDITOR,
+    );
+    const requestedOutputPath = input.outputPath
+      ? normalizeWorkspacePath(input.outputPath)
+      : undefined;
     const run = await prisma.agentRun.create({
       data: {
         workspaceId: input.workspaceId,
@@ -98,7 +109,11 @@ export class MinimalAgentRuntime implements AgentRuntime {
 
       for (const file of files) {
         if (!isCoreReadableText(file.path, file.contentType)) continue;
-        const { text } = await readWorkspaceTextFile(input.userId, input.workspaceId, file.id);
+        const { text } = await readWorkspaceTextFile(
+          input.userId,
+          input.workspaceId,
+          file.id,
+        );
         const remaining = MAX_INLINE_CONTEXT_CHARS - usedChars;
         if (remaining <= 0) {
           truncated = true;
@@ -106,7 +121,11 @@ export class MinimalAgentRuntime implements AgentRuntime {
         }
         const slice = text.length > remaining ? text.slice(0, remaining) : text;
         const isTruncatedFile = slice.length < text.length;
-        contentBlocks.push({ path: file.path, text: slice, truncated: isTruncatedFile });
+        contentBlocks.push({
+          path: file.path,
+          text: slice,
+          truncated: isTruncatedFile,
+        });
         usedChars += slice.length;
         if (slice.length < text.length) {
           truncated = true;
@@ -123,7 +142,10 @@ export class MinimalAgentRuntime implements AgentRuntime {
         truncated,
       });
 
-      const provider = await getDefaultModelProvider(input.userId, input.workspaceId);
+      const provider = await getDefaultModelProvider(
+        input.userId,
+        input.workspaceId,
+      );
       const result = await provider.adapter.generateText({
         model: modelName,
         messages: [
@@ -140,7 +162,12 @@ export class MinimalAgentRuntime implements AgentRuntime {
         targetType: "agentRun",
         targetId: run.id,
         summary: "Called default model provider.",
-        metadata: { provider: provider.provider, model: modelName, truncated, rawUsage: result.rawUsage },
+        metadata: {
+          provider: provider.provider,
+          model: modelName,
+          truncated,
+          rawUsage: result.rawUsage,
+        },
       });
 
       const date = new Date().toISOString().slice(0, 10);
@@ -185,12 +212,22 @@ export class MinimalAgentRuntime implements AgentRuntime {
         metadata: { outputFileId: output.id, truncated },
       });
 
-      return { runId: run.id, status: "SUCCEEDED", outputFileId: output.id, outputPath: output.path };
+      return {
+        runId: run.id,
+        status: "SUCCEEDED",
+        outputFileId: output.id,
+        outputPath: output.path,
+      };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Agent run failed.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Agent run failed.";
       await prisma.agentRun.update({
         where: { id: run.id },
-        data: { status: AgentRunStatus.FAILED, failedAt: new Date(), errorMessage },
+        data: {
+          status: AgentRunStatus.FAILED,
+          failedAt: new Date(),
+          errorMessage,
+        },
       });
       await writeAuditLog({
         workspaceId: input.workspaceId,

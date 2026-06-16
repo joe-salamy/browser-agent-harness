@@ -4,11 +4,20 @@ const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 const WINDOWS_DRIVE_SEGMENT_PATTERN = /^[A-Za-z]:/;
 
 function assertSafeZipEntryPath(entryPath: string): void {
-  if (entryPath.length === 0 || entryPath.length > 512 || CONTROL_CHAR_PATTERN.test(entryPath)) {
+  if (
+    entryPath.length === 0 ||
+    entryPath.length > 512 ||
+    CONTROL_CHAR_PATTERN.test(entryPath)
+  ) {
     throw new Error("Invalid ZIP entry path.");
   }
   const unsafeSegment = entryPath.split("/").some((segment) => {
-    return segment.length === 0 || segment === "." || segment === ".." || WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment);
+    return (
+      segment.length === 0 ||
+      segment === "." ||
+      segment === ".." ||
+      WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment)
+    );
   });
   if (entryPath.startsWith("/") || entryPath.includes("\\") || unsafeSegment) {
     throw new Error("Unsafe ZIP entry path.");
@@ -36,7 +45,10 @@ function dosDateTime(date: Date): { date: number; time: number } {
   const year = Math.max(date.getFullYear(), 1980);
   return {
     date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
-    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    time:
+      (date.getHours() << 11) |
+      (date.getMinutes() << 5) |
+      Math.floor(date.getSeconds() / 2),
   };
 }
 

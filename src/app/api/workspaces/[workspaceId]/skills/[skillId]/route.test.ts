@@ -26,7 +26,8 @@ vi.mock("@/server/skills/registry", () => ({
     "core.research-synthesis": {
       id: "core.research-synthesis",
       name: "Research Synthesis",
-      description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
+      description:
+        "Synthesizes supported workspace text files into a sourced Markdown summary.",
       requiredPermissions: ["files:read", "files:write", "models:generate"],
     },
   },
@@ -52,10 +53,15 @@ function context(skillId: string) {
 
 describe("workspace skill route", () => {
   it("rejects inherited skill ids without access or run side effects", async () => {
-    const response = await POST(new Request("http://test.local", { method: "POST" }), context("toString"));
+    const response = await POST(
+      new Request("http://test.local", { method: "POST" }),
+      context("toString"),
+    );
 
     expect(response.status).toBe(404);
-    await expect(errorBody(response)).resolves.toEqual({ error: "Unknown skill." });
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Unknown skill.",
+    });
     expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
     expect(mocks.runSkill).not.toHaveBeenCalled();
   });
@@ -70,7 +76,9 @@ describe("workspace skill route", () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(errorBody(response)).resolves.toEqual({ error: "Skill run failed." });
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill run failed.",
+    });
     expect(mocks.runSkill).not.toHaveBeenCalled();
   });
 

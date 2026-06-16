@@ -2,7 +2,10 @@ import { requireUserId } from "@/lib/auth";
 import { createWorkspaceExport } from "@/server/workspaces/files";
 import { workspaceRouteErrorResponse } from "../../route-errors";
 
-export async function GET(_request: Request, context: { params: Promise<{ workspaceId: string }> }) {
+export async function GET(
+  _request: Request,
+  context: { params: Promise<{ workspaceId: string }> },
+) {
   try {
     const userId = await requireUserId();
     const { workspaceId } = await context.params;

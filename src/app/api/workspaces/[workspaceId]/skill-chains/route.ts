@@ -17,7 +17,10 @@ type SkillChainRunBody = {
 
 type SkillChainStringField = Exclude<keyof SkillChainRunBody, "manifest">;
 
-function optionalStringField(record: Record<string, unknown>, field: SkillChainStringField): string | undefined {
+function optionalStringField(
+  record: Record<string, unknown>,
+  field: SkillChainStringField,
+): string | undefined {
   const value = record[field];
   if (value == null) return undefined;
   if (typeof value !== "string") throw new Error("Invalid request body.");
@@ -26,7 +29,8 @@ function optionalStringField(record: Record<string, unknown>, field: SkillChainS
 }
 
 function parseBody(value: unknown): SkillChainRunBody {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("Invalid request body.");
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("Invalid request body.");
   const record = value as Record<string, unknown>;
   return {
     manifest: record.manifest,
@@ -38,7 +42,10 @@ function parseBody(value: unknown): SkillChainRunBody {
   };
 }
 
-export async function POST(request: Request, context: { params: Promise<{ workspaceId: string }> }) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ workspaceId: string }> },
+) {
   try {
     const userId = await requireUserId();
     const { workspaceId } = await context.params;

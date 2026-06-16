@@ -11,7 +11,12 @@ function localPathForKey(key: string): string {
     CONTROL_CHAR_PATTERN.test(key) ||
     key.startsWith("/") ||
     key.includes("\\") ||
-    key.split("/").some((segment) => segment.length === 0 || segment === "." || segment === "..")
+    key
+      .split("/")
+      .some(
+        (segment) =>
+          segment.length === 0 || segment === "." || segment === "..",
+      )
   ) {
     throw new Error("Invalid object key.");
   }
@@ -19,7 +24,11 @@ function localPathForKey(key: string): string {
 }
 
 export class LocalObjectStore implements ObjectStore {
-  async putObject(input: { key: string; body: Buffer; contentType: string }): Promise<void> {
+  async putObject(input: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+  }): Promise<void> {
     const filePath = localPathForKey(input.key);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, input.body);
@@ -33,9 +42,17 @@ export class LocalObjectStore implements ObjectStore {
     await rm(localPathForKey(input.key), { force: true });
   }
 
-  async createSignedDownloadUrl(input: { key: string; filename: string; contentType: string }): Promise<string> {
+  async createSignedDownloadUrl(input: {
+    key: string;
+    filename: string;
+    contentType: string;
+  }): Promise<string> {
     localPathForKey(input.key);
-    const params = new URLSearchParams({ key: input.key, filename: input.filename, contentType: input.contentType });
+    const params = new URLSearchParams({
+      key: input.key,
+      filename: input.filename,
+      contentType: input.contentType,
+    });
     return `/api/object-download?${params.toString()}`;
   }
 }

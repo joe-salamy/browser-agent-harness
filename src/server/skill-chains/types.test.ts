@@ -15,21 +15,26 @@ const validManifest = {
       id: "market-research",
       skillId: "core.research-synthesis",
       prompt: "Research the idea.",
-      outputPath: "chains/research-plan-implementation/{{runId}}/{{stepIndex}}-market-research.md",
+      outputPath:
+        "chains/research-plan-implementation/{{runId}}/{{stepIndex}}-market-research.md",
     },
   ],
 };
 
 describe("skill chain manifest validation", () => {
   it("accepts a valid builder-style manifest", () => {
-    expect(parseSkillChainManifest(validManifest).steps[0]?.skillId).toBe(EXECUTABLE_CHAIN_SKILL_IDS[0]);
+    expect(parseSkillChainManifest(validManifest).steps[0]?.skillId).toBe(
+      EXECUTABLE_CHAIN_SKILL_IDS[0],
+    );
   });
 
   it("accepts web search grounding as an executable step", () => {
     expect(
       parseSkillChainManifest({
         ...validManifest,
-        steps: [{ ...validManifest.steps[0], skillId: "core.web-search-grounding" }],
+        steps: [
+          { ...validManifest.steps[0], skillId: "core.web-search-grounding" },
+        ],
       }).steps[0]?.skillId,
     ).toBe("core.web-search-grounding");
   });
@@ -47,7 +52,10 @@ describe("skill chain manifest validation", () => {
     expect(() =>
       parseSkillChainManifest({
         ...validManifest,
-        steps: [validManifest.steps[0], { ...validManifest.steps[0], prompt: "Research again." }],
+        steps: [
+          validManifest.steps[0],
+          { ...validManifest.steps[0], prompt: "Research again." },
+        ],
       }),
     ).toThrow("Invalid skill chain manifest.");
   });
@@ -65,7 +73,12 @@ describe("skill chain manifest validation", () => {
     expect(() =>
       parseSkillChainManifest({
         ...validManifest,
-        steps: [{ ...validManifest.steps[0], outputPath: "chains/example/{{runId}}/{{constructor}}.md" }],
+        steps: [
+          {
+            ...validManifest.steps[0],
+            outputPath: "chains/example/{{runId}}/{{constructor}}.md",
+          },
+        ],
       }),
     ).toThrow("Invalid skill chain manifest.");
   });
@@ -78,13 +91,17 @@ describe("skill chain manifest validation", () => {
         stepId: "market-research",
         stepIndex: 0,
       }),
-    ).toThrow("Unsupported template token in outputPath for step market-research.");
+    ).toThrow(
+      "Unsupported template token in outputPath for step market-research.",
+    );
   });
 });
 
 describe("chain builder JSON extraction", () => {
   it("accepts exact JSON object text", () => {
-    expect(extractJsonObjectText(JSON.stringify(validManifest))).toBe(JSON.stringify(validManifest));
+    expect(extractJsonObjectText(JSON.stringify(validManifest))).toBe(
+      JSON.stringify(validManifest),
+    );
   });
 
   it("accepts one json fenced block", () => {
@@ -93,8 +110,10 @@ describe("chain builder JSON extraction", () => {
   });
 
   it("rejects prose around JSON", () => {
-    expect(() => extractJsonObjectText(`Here is the manifest:\n${JSON.stringify(validManifest)}`)).toThrow(
-      "Expected a single JSON object.",
-    );
+    expect(() =>
+      extractJsonObjectText(
+        `Here is the manifest:\n${JSON.stringify(validManifest)}`,
+      ),
+    ).toThrow("Expected a single JSON object.");
   });
 });

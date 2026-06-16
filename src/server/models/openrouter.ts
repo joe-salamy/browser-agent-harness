@@ -1,5 +1,9 @@
 import OpenAI from "openai";
-import type { GenerateTextInput, GenerateTextResult, ModelProviderAdapter } from "@/server/models/provider";
+import type {
+  GenerateTextInput,
+  GenerateTextResult,
+  ModelProviderAdapter,
+} from "@/server/models/provider";
 
 export const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4.1-mini";
 const DEFAULT_OPENROUTER_TIMEOUT_MS = 60_000;
@@ -11,11 +15,15 @@ function isValidOpenRouterModelId(model: string): boolean {
 
 export function getAllowedOpenRouterModels(): readonly string[] {
   const allowedModels = new Set<string>([DEFAULT_OPENROUTER_MODEL]);
-  for (const value of (process.env.OPENROUTER_ALLOWED_MODELS ?? "").split(",")) {
+  for (const value of (process.env.OPENROUTER_ALLOWED_MODELS ?? "").split(
+    ",",
+  )) {
     const model = value.trim();
     if (!model) continue;
     if (!isValidOpenRouterModelId(model)) {
-      throw new Error("Configured OpenRouter model allowlist contains an invalid model id.");
+      throw new Error(
+        "Configured OpenRouter model allowlist contains an invalid model id.",
+      );
     }
     allowedModels.add(model);
   }
@@ -25,14 +33,20 @@ export function getAllowedOpenRouterModels(): readonly string[] {
 export function resolveOpenRouterModel(requestedModel?: string): string {
   const model = requestedModel?.trim();
   if (!model) return DEFAULT_OPENROUTER_MODEL;
-  if (!isValidOpenRouterModelId(model) || !getAllowedOpenRouterModels().includes(model)) {
+  if (
+    !isValidOpenRouterModelId(model) ||
+    !getAllowedOpenRouterModels().includes(model)
+  ) {
     throw new Error("OpenRouter model is not allowed for this deployment.");
   }
   return model;
 }
 
 export function getSafeOpenRouterErrorMessage(error: unknown): string {
-  const status = typeof error === "object" && error !== null && "status" in error ? (error as { status?: unknown }).status : undefined;
+  const status =
+    typeof error === "object" && error !== null && "status" in error
+      ? (error as { status?: unknown }).status
+      : undefined;
   return typeof status === "number"
     ? `OpenRouter request failed with status ${status}.`
     : "OpenRouter request failed.";
@@ -62,7 +76,8 @@ export class OpenRouterAdapter implements ModelProviderAdapter {
         temperature: input.temperature ?? 0.2,
       });
       const text = completion.choices[0]?.message?.content ?? "";
-      if (!text.trim()) throw new Error("OpenRouter returned an empty response.");
+      if (!text.trim())
+        throw new Error("OpenRouter returned an empty response.");
       return {
         text,
         rawUsage: completion.usage,

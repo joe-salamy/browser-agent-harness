@@ -1,4 +1,9 @@
-export type AgentToolCall = { name: string; input: unknown; output?: unknown; error?: string };
+export type AgentToolCall = {
+  name: string;
+  input: unknown;
+  output?: unknown;
+  error?: string;
+};
 
 export type AgentSupplementalContext = { label: string; content: string };
 

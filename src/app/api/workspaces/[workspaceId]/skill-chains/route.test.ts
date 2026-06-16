@@ -50,8 +50,12 @@ const context = { params: Promise.resolve({ workspaceId: "workspace-1" }) };
 
 describe("workspace skill-chain route", () => {
   it("checks editor access before parsing the request body", async () => {
-    const request = { json: vi.fn().mockRejectedValue(new Error("body parsed")) } as unknown as Request;
-    mocks.assertWorkspaceAccess.mockRejectedValueOnce(new mocks.WorkspaceAccessError());
+    const request = {
+      json: vi.fn().mockRejectedValue(new Error("body parsed")),
+    } as unknown as Request;
+    mocks.assertWorkspaceAccess.mockRejectedValueOnce(
+      new mocks.WorkspaceAccessError(),
+    );
 
     const response = await POST(request, context);
 
@@ -71,7 +75,9 @@ describe("workspace skill-chain route", () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(errorBody(response)).resolves.toEqual({ error: "Skill chain run failed." });
+    await expect(errorBody(response)).resolves.toEqual({
+      error: "Skill chain run failed.",
+    });
     expect(mocks.runSkillChain).not.toHaveBeenCalled();
   });
 
@@ -93,7 +99,12 @@ describe("workspace skill-chain route", () => {
     const response = await POST(
       new Request("http://test.local", {
         method: "POST",
-        body: JSON.stringify({ manifest, manifestPath: "  ", initialInput: "  Evaluate this.  ", model: "  openai/test  " }),
+        body: JSON.stringify({
+          manifest,
+          manifestPath: "  ",
+          initialInput: "  Evaluate this.  ",
+          model: "  openai/test  ",
+        }),
       }),
       context,
     );

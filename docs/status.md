@@ -70,7 +70,6 @@ Security/regression checks performed:
 2. Prepare PostgreSQL.
 
    Supported options:
-
    1. Native local default:
       - Install PostgreSQL 16 on Windows, preferably with:
 
@@ -79,6 +78,7 @@ Security/regression checks performed:
         ```
 
         Use the official PostgreSQL installer if `winget` is unavailable.
+
       - Start the PostgreSQL Windows service if the installer did not start it.
       - Create the dev role/database once using `psql` connected as the local `postgres` admin user:
 

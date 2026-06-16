@@ -6,7 +6,11 @@ import { getDefaultModelProvider } from "@/server/models/credentials";
 import { resolveOpenRouterModel } from "@/server/models/openrouter";
 import type { ModelMessage } from "@/server/models/provider";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
-import { createWorkspaceFile, isCoreReadableText, listWorkspaceFiles } from "@/server/workspaces/files";
+import {
+  createWorkspaceFile,
+  isCoreReadableText,
+  listWorkspaceFiles,
+} from "@/server/workspaces/files";
 import {
   CHAIN_AUTHORING_SKILL_ID,
   EXECUTABLE_CHAIN_SKILL_IDS,
@@ -32,7 +36,10 @@ export type BuildSkillChainManifestInput = {
   outputPath?: string;
 };
 
-export type BuildSkillChainManifestResult = AgentRunResult & { manifest?: SkillChainManifest; manifestPath?: string };
+export type BuildSkillChainManifestResult = AgentRunResult & {
+  manifest?: SkillChainManifest;
+  manifestPath?: string;
+};
 
 export function buildChainBuilderUserContext(input: {
   prompt: string;
@@ -65,18 +72,30 @@ export function buildChainBuilderMessages(input: {
   ];
 }
 
-export function parseChainBuilderManifestText(text: string): SkillChainManifest {
+export function parseChainBuilderManifestText(
+  text: string,
+): SkillChainManifest {
   return parseSkillChainManifest(JSON.parse(extractJsonObjectText(text)));
 }
 
 export function summarizeChainBuilderValidationError(error: unknown): string {
   if (error instanceof SyntaxError) return "Response was not valid JSON.";
-  if (error instanceof Error && Array.isArray((error as Error & { cause?: unknown }).cause)) {
-    return ((error as Error & { cause: Array<{ path?: unknown[]; message?: string }> }).cause)
-      .map((issue) => `${Array.isArray(issue.path) ? issue.path.join(".") || "root" : "root"}: ${issue.message ?? "invalid"}`)
+  if (
+    error instanceof Error &&
+    Array.isArray((error as Error & { cause?: unknown }).cause)
+  ) {
+    return (
+      error as Error & { cause: Array<{ path?: unknown[]; message?: string }> }
+    ).cause
+      .map(
+        (issue) =>
+          `${Array.isArray(issue.path) ? issue.path.join(".") || "root" : "root"}: ${issue.message ?? "invalid"}`,
+      )
       .join("; ");
   }
-  return error instanceof Error ? error.message : "Invalid skill chain manifest.";
+  return error instanceof Error
+    ? error.message
+    : "Invalid skill chain manifest.";
 }
 
 function buildRepairMessages(input: {
@@ -115,7 +134,11 @@ async function failBuilderRun(input: {
 }): Promise<BuildSkillChainManifestResult> {
   await prisma.agentRun.update({
     where: { id: input.runId },
-    data: { status: AgentRunStatus.FAILED, failedAt: new Date(), errorMessage: input.errorMessage },
+    data: {
+      status: AgentRunStatus.FAILED,
+      failedAt: new Date(),
+      errorMessage: input.errorMessage,
+    },
   });
   await writeAuditLog({
     workspaceId: input.workspaceId,
@@ -127,7 +150,11 @@ async function failBuilderRun(input: {
     summary: "Agent run failed.",
     metadata: { message: input.errorMessage },
   });
-  return { runId: input.runId, status: "FAILED", errorMessage: input.errorMessage };
+  return {
+    runId: input.runId,
+    status: "FAILED",
+    errorMessage: input.errorMessage,
+  };
 }
 
 export async function buildSkillChainManifest(
@@ -136,7 +163,11 @@ export async function buildSkillChainManifest(
   const prompt = input.prompt.trim();
   if (!prompt) throw new Error("Chain description is required.");
   const modelName = resolveOpenRouterModel(input.model);
-  const workspace = await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
+  const workspace = await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.EDITOR,
+  );
   const run = await prisma.agentRun.create({
     data: {
       workspaceId: input.workspaceId,
@@ -160,18 +191,28 @@ export async function buildSkillChainManifest(
   });
 
   try {
-    const workspaceFiles = await listWorkspaceFiles(input.userId, input.workspaceId);
+    const workspaceFiles = await listWorkspaceFiles(
+      input.userId,
+      input.workspaceId,
+    );
     const files = workspaceFiles.map((file) => ({
       path: file.path,
       contentType: file.contentType,
       sizeBytes: file.sizeBytes,
       readableByCore: isCoreReadableText(file.path, file.contentType),
     }));
-    const provider = await getDefaultModelProvider(input.userId, input.workspaceId);
+    const provider = await getDefaultModelProvider(
+      input.userId,
+      input.workspaceId,
+    );
     const firstResult = await provider.adapter.generateText({
       model: modelName,
       temperature: 0.1,
-      messages: buildChainBuilderMessages({ prompt, workspaceInstructions: workspace.instructions, files }),
+      messages: buildChainBuilderMessages({
+        prompt,
+        workspaceInstructions: workspace.instructions,
+        files,
+      }),
     });
     await writeAuditLog({
       workspaceId: input.workspaceId,
@@ -181,7 +222,12 @@ export async function buildSkillChainManifest(
       targetType: "agentRun",
       targetId: run.id,
       summary: "Called default model provider.",
-      metadata: { provider: provider.provider, model: modelName, repair: false, rawUsage: firstResult.rawUsage },
+      metadata: {
+        provider: provider.provider,
+        model: modelName,
+        repair: false,
+        rawUsage: firstResult.rawUsage,
+      },
     });
 
     let manifest: SkillChainManifest;
@@ -207,7 +253,12 @@ export async function buildSkillChainManifest(
         targetType: "agentRun",
         targetId: run.id,
         summary: "Called default model provider for manifest repair.",
-        metadata: { provider: provider.provider, model: modelName, repair: true, rawUsage: repairResult.rawUsage },
+        metadata: {
+          provider: provider.provider,
+          model: modelName,
+          repair: true,
+          rawUsage: repairResult.rawUsage,
+        },
       });
       try {
         manifest = parseChainBuilderManifestText(repairResult.text);
@@ -221,7 +272,9 @@ export async function buildSkillChainManifest(
       }
     }
 
-    const manifestPath = input.outputPath ?? `chains/manifests/${new Date().toISOString().slice(0, 10)}-${run.id}-${manifest.id}.json`;
+    const manifestPath =
+      input.outputPath ??
+      `chains/manifests/${new Date().toISOString().slice(0, 10)}-${run.id}-${manifest.id}.json`;
     const file = await createWorkspaceFile({
       userId: input.userId,
       workspaceId: input.workspaceId,
@@ -258,7 +311,11 @@ export async function buildSkillChainManifest(
       targetType: "skillChainManifest",
       targetId: manifest.id,
       summary: `Created skill chain manifest ${manifest.id}.`,
-      metadata: { manifestId: manifest.id, manifestPath: file.path, outputFileId: file.id },
+      metadata: {
+        manifestId: manifest.id,
+        manifestPath: file.path,
+        outputFileId: file.id,
+      },
     });
     await writeAuditLog({
       workspaceId: input.workspaceId,
@@ -280,7 +337,13 @@ export async function buildSkillChainManifest(
       manifest,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Chain Builder failed.";
-    return failBuilderRun({ userId: input.userId, workspaceId: input.workspaceId, runId: run.id, errorMessage });
+    const errorMessage =
+      error instanceof Error ? error.message : "Chain Builder failed.";
+    return failBuilderRun({
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      runId: run.id,
+      errorMessage,
+    });
   }
 }

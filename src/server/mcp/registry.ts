@@ -1,4 +1,9 @@
-import { McpTransport, WorkspaceRole, type McpConnection, type McpPermission } from "@prisma/client";
+import {
+  McpTransport,
+  WorkspaceRole,
+  type McpConnection,
+  type McpPermission,
+} from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
@@ -8,7 +13,10 @@ function parseMcpTransport(transport: string): "HTTP_SSE" | "STDIO_DEV" {
   throw new Error("Unsupported MCP transport.");
 }
 
-export function validateMcpUrl(transport: "HTTP_SSE" | "STDIO_DEV", rawUrl?: string): string | null {
+export function validateMcpUrl(
+  transport: "HTTP_SSE" | "STDIO_DEV",
+  rawUrl?: string,
+): string | null {
   if (transport === "STDIO_DEV") return rawUrl?.trim() || null;
   const value = rawUrl?.trim();
   if (!value) throw new Error("HTTP_SSE MCP connections require a URL.");
@@ -23,12 +31,22 @@ export function validateMcpUrl(transport: "HTTP_SSE" | "STDIO_DEV", rawUrl?: str
   if (url.username || url.password) {
     throw new Error("MCP connection URLs must not include credentials.");
   }
-  const isLocalhost = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  const isLocalhost =
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1");
   if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
-    throw new Error("HTTP_SSE MCP connections require https:// URLs in production.");
+    throw new Error(
+      "HTTP_SSE MCP connections require https:// URLs in production.",
+    );
   }
-  if (process.env.NODE_ENV !== "production" && url.protocol !== "https:" && !isLocalhost) {
-    throw new Error("Development HTTP_SSE MCP connections must use https:// or http://localhost.");
+  if (
+    process.env.NODE_ENV !== "production" &&
+    url.protocol !== "https:" &&
+    !isLocalhost
+  ) {
+    throw new Error(
+      "Development HTTP_SSE MCP connections must use https:// or http://localhost.",
+    );
   }
   return url.toString();
 }
@@ -40,7 +58,11 @@ export async function createMcpConnection(input: {
   transport: string;
   url?: string;
 }): Promise<McpConnection> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.OWNER,
+  );
   const name = input.name.trim();
   if (!name) throw new Error("MCP connection name is required.");
   const transport = parseMcpTransport(input.transport);
@@ -53,7 +75,8 @@ export async function createMcpConnection(input: {
       name,
       transport: transport as McpTransport,
       url: validateMcpUrl(transport, input.url),
-      enabled: transport === "HTTP_SSE" || process.env.NODE_ENV !== "production",
+      enabled:
+        transport === "HTTP_SSE" || process.env.NODE_ENV !== "production",
       createdById: input.userId,
     },
   });
@@ -76,16 +99,25 @@ export async function setMcpToolPermission(input: {
   toolName: string;
   allowed: boolean;
 }): Promise<void> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.OWNER,
+  );
   const toolName = input.toolName.trim();
-  if (!toolName || toolName.length > 128) throw new Error("Tool name is required and must be at most 128 characters.");
+  if (!toolName || toolName.length > 128)
+    throw new Error(
+      "Tool name is required and must be at most 128 characters.",
+    );
   const connection = await prisma.mcpConnection.findFirst({
     where: { id: input.connectionId, workspaceId: input.workspaceId },
     select: { id: true },
   });
   if (!connection) throw new Error("MCP connection not found.");
   await prisma.mcpPermission.upsert({
-    where: { connectionId_toolName: { connectionId: input.connectionId, toolName } },
+    where: {
+      connectionId_toolName: { connectionId: input.connectionId, toolName },
+    },
     create: {
       workspaceId: input.workspaceId,
       connectionId: input.connectionId,

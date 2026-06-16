@@ -1,7 +1,10 @@
 import { ModelProvider, WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
-import { OpenRouterAdapter, DEFAULT_OPENROUTER_MODEL } from "@/server/models/openrouter";
+import {
+  OpenRouterAdapter,
+  DEFAULT_OPENROUTER_MODEL,
+} from "@/server/models/openrouter";
 import type { ModelProviderAdapter } from "@/server/models/provider";
 import { encryptSecret, decryptSecret } from "@/server/security/encryption";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
@@ -21,16 +24,25 @@ export async function saveOpenRouterCredential(input: {
   apiKey: string;
   isDefault: boolean;
 }): Promise<void> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.OWNER,
+  );
   const label = input.label.trim();
   const apiKey = input.apiKey.trim();
-  if (!label || !apiKey) throw new Error("Credential label and API key are required.");
+  if (!label || !apiKey)
+    throw new Error("Credential label and API key are required.");
   const encrypted = await encryptSecret(apiKey);
 
   await prisma.$transaction(async (tx) => {
     if (input.isDefault) {
       await tx.modelCredential.updateMany({
-        where: { workspaceId: input.workspaceId, provider: ModelProvider.OPENROUTER, revokedAt: null },
+        where: {
+          workspaceId: input.workspaceId,
+          provider: ModelProvider.OPENROUTER,
+          revokedAt: null,
+        },
         data: { isDefault: false },
       });
     }
@@ -61,9 +73,17 @@ export async function revokeModelCredential(input: {
   workspaceId: string;
   credentialId: string;
 }): Promise<void> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.OWNER);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.OWNER,
+  );
   const result = await prisma.modelCredential.updateMany({
-    where: { id: input.credentialId, workspaceId: input.workspaceId, revokedAt: null },
+    where: {
+      id: input.credentialId,
+      workspaceId: input.workspaceId,
+      revokedAt: null,
+    },
     data: { revokedAt: new Date(), isDefault: false },
   });
   if (result.count === 0) throw new Error("Model credential not found.");
@@ -78,11 +98,20 @@ export async function revokeModelCredential(input: {
   });
 }
 
-export async function listModelCredentials(userId: string, workspaceId: string): Promise<ModelCredentialSummary[]> {
+export async function listModelCredentials(
+  userId: string,
+  workspaceId: string,
+): Promise<ModelCredentialSummary[]> {
   await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.OWNER);
   return prisma.modelCredential.findMany({
     where: { workspaceId, revokedAt: null },
-    select: { id: true, provider: true, label: true, isDefault: true, createdAt: true },
+    select: {
+      id: true,
+      provider: true,
+      label: true,
+      isDefault: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -90,13 +119,29 @@ export async function listModelCredentials(userId: string, workspaceId: string):
 export async function getDefaultModelProvider(
   userId: string,
   workspaceId: string,
-): Promise<{ provider: "OPENROUTER"; model: string; adapter: ModelProviderAdapter }> {
+): Promise<{
+  provider: "OPENROUTER";
+  model: string;
+  adapter: ModelProviderAdapter;
+}> {
   await assertWorkspaceAccess(userId, workspaceId, WorkspaceRole.VIEWER);
   const credential = await prisma.modelCredential.findFirst({
-    where: { workspaceId, provider: ModelProvider.OPENROUTER, revokedAt: null, isDefault: true },
+    where: {
+      workspaceId,
+      provider: ModelProvider.OPENROUTER,
+      revokedAt: null,
+      isDefault: true,
+    },
     orderBy: { createdAt: "desc" },
   });
-  const apiKey = credential ? await decryptSecret(credential) : process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("No OpenRouter credential configured for this workspace.");
-  return { provider: "OPENROUTER", model: DEFAULT_OPENROUTER_MODEL, adapter: new OpenRouterAdapter(apiKey) };
+  const apiKey = credential
+    ? await decryptSecret(credential)
+    : process.env.OPENROUTER_API_KEY;
+  if (!apiKey)
+    throw new Error("No OpenRouter credential configured for this workspace.");
+  return {
+    provider: "OPENROUTER",
+    model: DEFAULT_OPENROUTER_MODEL,
+    adapter: new OpenRouterAdapter(apiKey),
+  };
 }

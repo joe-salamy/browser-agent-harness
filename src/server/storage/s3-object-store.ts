@@ -1,4 +1,9 @@
-import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { ObjectStore } from "@/server/storage/object-store";
 
@@ -35,22 +40,39 @@ export class S3ObjectStore implements ObjectStore {
     });
   }
 
-  async putObject(input: { key: string; body: Buffer; contentType: string }): Promise<void> {
+  async putObject(input: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+  }): Promise<void> {
     await this.client.send(
-      new PutObjectCommand({ Bucket: this.bucket, Key: input.key, Body: input.body, ContentType: input.contentType }),
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: input.key,
+        Body: input.body,
+        ContentType: input.contentType,
+      }),
     );
   }
 
   async getObject(input: { key: string }): Promise<Buffer> {
-    const response = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: input.key }));
+    const response = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: input.key }),
+    );
     return streamToBuffer(response.Body);
   }
 
   async deleteObject(input: { key: string }): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: input.key }));
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.bucket, Key: input.key }),
+    );
   }
 
-  async createSignedDownloadUrl(input: { key: string; filename: string; contentType: string }): Promise<string> {
+  async createSignedDownloadUrl(input: {
+    key: string;
+    filename: string;
+    contentType: string;
+  }): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: input.key,

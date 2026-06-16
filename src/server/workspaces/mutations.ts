@@ -4,7 +4,9 @@ import { requireUserId } from "@/lib/auth";
 import { writeAuditLog } from "@/server/audit/log";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 
-export async function createWorkspace(input: { name: string }): Promise<{ id: string }> {
+export async function createWorkspace(input: {
+  name: string;
+}): Promise<{ id: string }> {
   const userId = await requireUserId();
   const name = input.name.trim();
   if (!name) throw new Error("Workspace name is required.");

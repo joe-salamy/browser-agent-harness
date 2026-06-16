@@ -14,7 +14,9 @@ vi.mock("@/server/models/credentials", () => ({
 }));
 
 vi.mock("@/server/models/openrouter", () => ({
-  resolveOpenRouterModel: vi.fn((model?: string) => model ?? "openai/gpt-4.1-mini"),
+  resolveOpenRouterModel: vi.fn(
+    (model?: string) => model ?? "openai/gpt-4.1-mini",
+  ),
 }));
 
 vi.mock("@/server/agents/minimal-runtime", () => ({
@@ -47,7 +49,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.TAVILY_API_KEY = "tavily-test-key";
   vi.stubGlobal("fetch", vi.fn());
-  mocks.runtimeRun.mockResolvedValue({ runId: "run-1", status: "SUCCEEDED", outputFileId: "file-1" });
+  mocks.runtimeRun.mockResolvedValue({
+    runId: "run-1",
+    status: "SUCCEEDED",
+    outputFileId: "file-1",
+  });
 });
 
 afterEach(() => {
@@ -69,13 +75,25 @@ describe("runWebSearchGroundingSkill", () => {
       .mockResolvedValueOnce(
         tavilyResponse({
           answer: "SpaceX launched recent Falcon missions.",
-          results: [{ title: "Launch update", url: "https://example.com/launch", content: "Recent launch details." }],
+          results: [
+            {
+              title: "Launch update",
+              url: "https://example.com/launch",
+              content: "Recent launch details.",
+            },
+          ],
         }),
       )
       .mockResolvedValueOnce(
         tavilyResponse({
           answer: "Falcon 9 remains active.",
-          results: [{ title: "Falcon news", url: "https://example.com/falcon", content: "Falcon 9 mission details." }],
+          results: [
+            {
+              title: "Falcon news",
+              url: "https://example.com/falcon",
+              content: "Falcon 9 mission details.",
+            },
+          ],
         }),
       );
 
@@ -98,7 +116,10 @@ describe("runWebSearchGroundingSkill", () => {
           content:
             'You are a web search query generator. Based on the user\'s task, generate up to 3 web search queries to gather necessary context. Return JSON: { "queries": ["query1"] }.',
         },
-        { role: "user", content: "Summarize the latest major news regarding SpaceX launches." },
+        {
+          role: "user",
+          content: "Summarize the latest major news regarding SpaceX launches.",
+        },
       ],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -120,26 +141,41 @@ describe("runWebSearchGroundingSkill", () => {
       model: "openai/gpt-4.1-mini",
       outputPath: "outputs/spacex.md",
       prompt: "Summarize the latest major news regarding SpaceX launches.",
-      supplementalContexts: [{ label: "Web Search Context", content: expect.stringContaining("https://example.com/launch") }],
+      supplementalContexts: [
+        {
+          label: "Web Search Context",
+          content: expect.stringContaining("https://example.com/launch"),
+        },
+      ],
     });
     const forwardedInput = mocks.runtimeRun.mock.calls[0]?.[0] as {
       prompt: string;
       supplementalContexts: Array<{ content: string }>;
     };
     expect(forwardedInput.prompt).not.toContain("Web Search Context:");
-    expect(forwardedInput.supplementalContexts[0]?.content).toContain("untrusted reference material");
+    expect(forwardedInput.supplementalContexts[0]?.content).toContain(
+      "untrusted reference material",
+    );
   });
 
   it("falls back to the first 100 prompt characters when query JSON is invalid", async () => {
     const fetchMock = vi.mocked(fetch);
     const prompt = "x".repeat(120);
     mocks.generateText.mockResolvedValueOnce({ text: "not json" });
-    fetchMock.mockResolvedValueOnce(tavilyResponse({ answer: null, results: [] }));
+    fetchMock.mockResolvedValueOnce(
+      tavilyResponse({ answer: null, results: [] }),
+    );
 
-    await runWebSearchGroundingSkill({ userId: "user-1", workspaceId: "workspace-1", prompt });
+    await runWebSearchGroundingSkill({
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      prompt,
+    });
 
     const firstFetchInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(firstFetchInit.body as string).query).toBe("x".repeat(100));
+    expect(JSON.parse(firstFetchInit.body as string).query).toBe(
+      "x".repeat(100),
+    );
     expect(mocks.runtimeRun).toHaveBeenCalledOnce();
   });
 
@@ -147,7 +183,11 @@ describe("runWebSearchGroundingSkill", () => {
     delete process.env.TAVILY_API_KEY;
 
     await expect(
-      runWebSearchGroundingSkill({ userId: "user-1", workspaceId: "workspace-1", prompt: "Research current news." }),
+      runWebSearchGroundingSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Research current news.",
+      }),
     ).rejects.toThrow("TAVILY_API_KEY is not configured.");
 
     expect(mocks.generateText).not.toHaveBeenCalled();
@@ -157,27 +197,45 @@ describe("runWebSearchGroundingSkill", () => {
 
   it("fails with a sanitized Tavily status error", async () => {
     const fetchMock = vi.mocked(fetch);
-    mocks.generateText.mockResolvedValueOnce({ text: '{"queries":["private workspace query"]}' });
+    mocks.generateText.mockResolvedValueOnce({
+      text: '{"queries":["private workspace query"]}',
+    });
     fetchMock.mockResolvedValueOnce(tavilyErrorResponse(401, "Unauthorized"));
 
     let caughtError: unknown;
     try {
-      await runWebSearchGroundingSkill({ userId: "user-1", workspaceId: "workspace-1", prompt: "Research private workspace data." });
+      await runWebSearchGroundingSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Research private workspace data.",
+      });
     } catch (error) {
       caughtError = error;
     }
     expect(caughtError).toBeInstanceOf(Error);
-    expect((caughtError as Error).message).toBe("Tavily search failed (401 Unauthorized).");
-    expect((caughtError as Error).message).not.toContain("private workspace query");
+    expect((caughtError as Error).message).toBe(
+      "Tavily search failed (401 Unauthorized).",
+    );
+    expect((caughtError as Error).message).not.toContain(
+      "private workspace query",
+    );
   });
 
   it("fails predictably when Tavily times out", async () => {
     const fetchMock = vi.mocked(fetch);
-    mocks.generateText.mockResolvedValueOnce({ text: '{"queries":["current news"]}' });
-    fetchMock.mockRejectedValueOnce(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
+    mocks.generateText.mockResolvedValueOnce({
+      text: '{"queries":["current news"]}',
+    });
+    fetchMock.mockRejectedValueOnce(
+      Object.assign(new Error("aborted"), { name: "TimeoutError" }),
+    );
 
     await expect(
-      runWebSearchGroundingSkill({ userId: "user-1", workspaceId: "workspace-1", prompt: "Research current news." }),
+      runWebSearchGroundingSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        prompt: "Research current news.",
+      }),
     ).rejects.toThrow("Tavily search timed out.");
 
     expect(mocks.runtimeRun).not.toHaveBeenCalled();

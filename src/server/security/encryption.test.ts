@@ -12,11 +12,20 @@ describe("secret encryption", () => {
 
 describe("audit metadata safety", () => {
   it("rejects secret-like metadata fields", () => {
-    expect(() => assertAuditMetadataSafe({ nested: { apiKey: "plain" } })).toThrow(/secret field/);
-    expect(() => assertAuditMetadataSafe({ Authorization: "Bearer token" })).toThrow(/secret field/);
+    expect(() =>
+      assertAuditMetadataSafe({ nested: { apiKey: "plain" } }),
+    ).toThrow(/secret field/);
+    expect(() =>
+      assertAuditMetadataSafe({ Authorization: "Bearer token" }),
+    ).toThrow(/secret field/);
   });
 
   it("allows non-secret operational metadata", () => {
-    expect(() => assertAuditMetadataSafe({ path: "notes.md", model: "openai/gpt-4.1-mini" })).not.toThrow();
+    expect(() =>
+      assertAuditMetadataSafe({
+        path: "notes.md",
+        model: "openai/gpt-4.1-mini",
+      }),
+    ).not.toThrow();
   });
 });

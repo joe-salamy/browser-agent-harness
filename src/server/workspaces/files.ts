@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import path from "path";
-import { WorkspaceRole, type WorkspaceFile, type WorkspaceFileVersion } from "@prisma/client";
+import {
+  WorkspaceRole,
+  type WorkspaceFile,
+  type WorkspaceFileVersion,
+} from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/server/audit/log";
 import { getObjectStore } from "@/server/storage";
@@ -31,21 +35,33 @@ export class UnsupportedTextFileError extends Error {
   }
 }
 
-export type WorkspaceFileWithCurrentVersion = WorkspaceFile & { currentVersion: WorkspaceFileVersion | null };
+export type WorkspaceFileWithCurrentVersion = WorkspaceFile & {
+  currentVersion: WorkspaceFileVersion | null;
+};
 
 export function normalizeWorkspacePath(inputPath: string): string {
   const raw = inputPath.trim().replaceAll("\\", "/");
   if (raw.length === 0 || raw.length > 512 || CONTROL_CHAR_PATTERN.test(raw)) {
     throw new Error("Invalid workspace file path.");
   }
-  if (raw.startsWith("/") || raw.split("/").some((segment) => WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment))) {
+  if (
+    raw.startsWith("/") ||
+    raw
+      .split("/")
+      .some((segment) => WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment))
+  ) {
     throw new Error("Workspace file path must be relative.");
   }
   if (raw.split("/").includes("..")) {
     throw new Error("Workspace file path cannot traverse directories.");
   }
   const normalized = path.posix.normalize(raw);
-  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized.split("/").includes("..")) {
+  if (
+    normalized === "." ||
+    normalized.startsWith("../") ||
+    normalized === ".." ||
+    normalized.split("/").includes("..")
+  ) {
     throw new Error("Workspace file path cannot traverse directories.");
   }
   return normalized;
@@ -53,7 +69,11 @@ export function normalizeWorkspacePath(inputPath: string): string {
 
 export function normalizeContentType(inputContentType: string): string {
   const contentType = inputContentType.trim().toLowerCase();
-  if (!contentType || contentType.length > 255 || CONTROL_CHAR_PATTERN.test(contentType)) {
+  if (
+    !contentType ||
+    contentType.length > 255 ||
+    CONTROL_CHAR_PATTERN.test(contentType)
+  ) {
     throw new Error("Invalid content type.");
   }
   if (!CONTENT_TYPE_PATTERN.test(contentType)) {
@@ -62,9 +82,15 @@ export function normalizeContentType(inputContentType: string): string {
   return contentType;
 }
 
-export function isCoreReadableText(pathValue: string, contentType: string): boolean {
+export function isCoreReadableText(
+  pathValue: string,
+  contentType: string,
+): boolean {
   const cleanContentType = contentType.split(";", 1)[0].trim().toLowerCase();
-  return TEXT_CONTENT_TYPES[cleanContentType] === true || TEXT_EXTENSIONS[path.posix.extname(pathValue).toLowerCase()] === true;
+  return (
+    TEXT_CONTENT_TYPES[cleanContentType] === true ||
+    TEXT_EXTENSIONS[path.posix.extname(pathValue).toLowerCase()] === true
+  );
 }
 
 export async function listWorkspaceFiles(
@@ -116,7 +142,9 @@ export async function readWorkspaceTextFile(
     throw new UnsupportedTextFileError();
   }
 
-  const bytes = await getObjectStore().getObject({ key: file.currentVersion.objectKey });
+  const bytes = await getObjectStore().getObject({
+    key: file.currentVersion.objectKey,
+  });
   return { file, text: bytes.toString("utf8") };
 }
 
@@ -131,7 +159,9 @@ export async function getWorkspaceFileDownload(
     include: { currentVersion: true },
   });
   if (!file?.currentVersion) throw new Error("File not found.");
-  const bytes = await getObjectStore().getObject({ key: file.currentVersion.objectKey });
+  const bytes = await getObjectStore().getObject({
+    key: file.currentVersion.objectKey,
+  });
   return { file, bytes };
 }
 
@@ -143,11 +173,19 @@ export async function createWorkspaceFile(input: {
   contentType: string;
   createdByRunId?: string;
 }): Promise<WorkspaceFile> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.EDITOR,
+  );
   const normalizedPath = normalizeWorkspacePath(input.path);
   const contentType = normalizeContentType(input.contentType);
   const existing = await prisma.workspaceFile.findFirst({
-    where: { workspaceId: input.workspaceId, path: normalizedPath, deletedAt: null },
+    where: {
+      workspaceId: input.workspaceId,
+      path: normalizedPath,
+      deletedAt: null,
+    },
     select: { id: true },
   });
   if (existing) throw new Error("A current file already exists at that path.");
@@ -157,7 +195,11 @@ export async function createWorkspaceFile(input: {
   const objectKey = `workspaces/${input.workspaceId}/files/${fileId}/versions/${versionId}`;
   const sha256 = crypto.createHash("sha256").update(input.bytes).digest("hex");
   const objectStore = getObjectStore();
-  await objectStore.putObject({ key: objectKey, body: input.bytes, contentType });
+  await objectStore.putObject({
+    key: objectKey,
+    body: input.bytes,
+    contentType,
+  });
 
   let file: WorkspaceFile;
   try {
@@ -209,7 +251,11 @@ export async function createWorkspaceFile(input: {
     targetType: "file",
     targetId: file.id,
     summary: `Created ${normalizedPath}.`,
-    metadata: { path: normalizedPath, contentType, sizeBytes: input.bytes.length },
+    metadata: {
+      path: normalizedPath,
+      contentType,
+      sizeBytes: input.bytes.length,
+    },
   });
   return file;
 }
@@ -222,14 +268,28 @@ export async function writeWorkspaceTextFile(input: {
   contentType?: string;
   createdByRunId?: string;
 }): Promise<WorkspaceFileVersion> {
-  await assertWorkspaceAccess(input.userId, input.workspaceId, WorkspaceRole.EDITOR);
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.EDITOR,
+  );
   const file = await prisma.workspaceFile.findFirst({
-    where: { id: input.fileId, workspaceId: input.workspaceId, deletedAt: null },
-    include: { currentVersion: true, versions: { orderBy: { versionNumber: "desc" }, take: 1 } },
+    where: {
+      id: input.fileId,
+      workspaceId: input.workspaceId,
+      deletedAt: null,
+    },
+    include: {
+      currentVersion: true,
+      versions: { orderBy: { versionNumber: "desc" }, take: 1 },
+    },
   });
   if (!file?.currentVersion) throw new Error("File not found.");
-  const contentType = normalizeContentType(input.contentType ?? file.contentType);
-  if (!isCoreReadableText(file.path, contentType)) throw new UnsupportedTextFileError();
+  const contentType = normalizeContentType(
+    input.contentType ?? file.contentType,
+  );
+  if (!isCoreReadableText(file.path, contentType))
+    throw new UnsupportedTextFileError();
 
   const bytes = Buffer.from(input.text, "utf8");
   const versionId = crypto.randomUUID();
@@ -259,7 +319,11 @@ export async function writeWorkspaceTextFile(input: {
       });
       await tx.workspaceFile.update({
         where: { id: file.id },
-        data: { currentVersionId: versionId, sizeBytes: bytes.length, contentType },
+        data: {
+          currentVersionId: versionId,
+          sizeBytes: bytes.length,
+          contentType,
+        },
       });
       return created;
     });
@@ -298,11 +362,22 @@ export async function createWorkspaceExport(
   const entries: Array<{ path: string; bytes: Buffer }> = [];
   for (const file of files) {
     if (file.currentVersion) {
-      entries.push({ path: file.path, bytes: await getObjectStore().getObject({ key: file.currentVersion.objectKey }) });
+      entries.push({
+        path: file.path,
+        bytes: await getObjectStore().getObject({
+          key: file.currentVersion.objectKey,
+        }),
+      });
     }
   }
-  const logs = await prisma.auditLog.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } });
-  entries.push({ path: "audit-log.json", bytes: Buffer.from(JSON.stringify(logs, null, 2), "utf8") });
+  const logs = await prisma.auditLog.findMany({
+    where: { workspaceId },
+    orderBy: { createdAt: "asc" },
+  });
+  entries.push({
+    path: "audit-log.json",
+    bytes: Buffer.from(JSON.stringify(logs, null, 2), "utf8"),
+  });
   const bytes = createZip(entries);
 
   await writeAuditLog({
@@ -315,5 +390,9 @@ export async function createWorkspaceExport(
     metadata: { fileCount: files.length },
   });
 
-  return { filename: `workspace-${workspaceId}.zip`, bytes, contentType: "application/zip" };
+  return {
+    filename: `workspace-${workspaceId}.zip`,
+    bytes,
+    contentType: "application/zip",
+  };
 }

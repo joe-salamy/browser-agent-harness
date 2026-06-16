@@ -16,7 +16,9 @@ type ParsedArgs = {
 };
 
 function shellQuote(value: string): string {
-  return process.platform === "win32" ? `'${value.replaceAll("'", "''")}'` : `'${value.replaceAll("'", "'\\''")}'`;
+  return process.platform === "win32"
+    ? `'${value.replaceAll("'", "''")}'`
+    : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function formatSkillChainCommand(args: Record<string, string>): string {
@@ -25,7 +27,10 @@ function formatSkillChainCommand(args: Record<string, string>): string {
     "run",
     "skill-chain",
     "--",
-    ...Object.entries(args).flatMap(([name, value]) => [`--${name}`, shellQuote(value)]),
+    ...Object.entries(args).flatMap(([name, value]) => [
+      `--${name}`,
+      shellQuote(value),
+    ]),
   ].join(" ");
 }
 
@@ -38,7 +43,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
     const value = argv[index + 1];
-    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}.`);
+    if (!value || value.startsWith("--"))
+      throw new Error(`Missing value for ${arg}.`);
     index += 1;
     switch (arg) {
       case "--goal":
@@ -70,24 +76,34 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 async function readGoal(args: ParsedArgs): Promise<string> {
-  if ((args.goal ? 1 : 0) + (args.goalFile ? 1 : 0) !== 1) throw new Error("Provide exactly one of --goal or --goal-file.");
+  if ((args.goal ? 1 : 0) + (args.goalFile ? 1 : 0) !== 1)
+    throw new Error("Provide exactly one of --goal or --goal-file.");
   const goal = args.goal ?? (await readFile(args.goalFile as string, "utf8"));
   const trimmed = goal.trim();
   if (!trimmed) throw new Error("Goal is required.");
   return trimmed;
 }
 
-async function resolveUserWorkspace(args: ParsedArgs): Promise<{ userId: string; workspaceId: string; userEmail: string }> {
+async function resolveUserWorkspace(
+  args: ParsedArgs,
+): Promise<{ userId: string; workspaceId: string; userEmail: string }> {
   if (!args.userEmail) throw new Error("--user-email is required.");
   if ((args.workspaceId ? 1 : 0) + (args.workspaceName ? 1 : 0) !== 1) {
-    throw new Error("Provide exactly one of --workspace-id or --workspace-name.");
+    throw new Error(
+      "Provide exactly one of --workspace-id or --workspace-name.",
+    );
   }
-  const user = await prisma.user.findUnique({ where: { email: args.userEmail } });
+  const user = await prisma.user.findUnique({
+    where: { email: args.userEmail },
+  });
   if (!user?.email) throw new Error(`User not found: ${args.userEmail}.`);
   const workspace = args.workspaceId
     ? await prisma.workspace.findUnique({ where: { id: args.workspaceId } })
     : await prisma.workspace.findFirst({
-        where: { name: args.workspaceName, members: { some: { userId: user.id } } },
+        where: {
+          name: args.workspaceName,
+          members: { some: { userId: user.id } },
+        },
         orderBy: { createdAt: "desc" },
       });
   if (!workspace) throw new Error("Workspace not found.");
@@ -127,12 +143,15 @@ async function main(): Promise<void> {
       })}`,
     );
   }
-  if (result.status === "FAILED" && result.errorMessage) console.log(`Error: ${result.errorMessage}`);
+  if (result.status === "FAILED" && result.errorMessage)
+    console.log(`Error: ${result.errorMessage}`);
 }
 
 main()
   .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : "Skill chain creation failed.");
+    console.error(
+      error instanceof Error ? error.message : "Skill chain creation failed.",
+    );
     process.exitCode = 1;
   })
   .finally(async () => {

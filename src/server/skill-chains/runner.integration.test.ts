@@ -2,7 +2,11 @@ import crypto from "crypto";
 import { describe, expect, it } from "vitest";
 import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { createWorkspaceFile, getWorkspaceFileByPath, readWorkspaceTextFile } from "@/server/workspaces/files";
+import {
+  createWorkspaceFile,
+  getWorkspaceFileByPath,
+  readWorkspaceTextFile,
+} from "@/server/workspaces/files";
 import { runSkillChain, type SkillChainStepExecutor } from "./runner";
 import type { SkillChainManifest, SkillChainState } from "./types";
 
@@ -12,7 +16,10 @@ dbDescribe("skill chain runner persistence", () => {
   it("runs a three-step manifest and passes prior artifacts", async () => {
     const { userId, workspaceId } = await createFixture("chain-success");
     const manifest = makeManifest("chain-success");
-    const previousArtifactsByStep = new Map<string, Array<{ stepId: string; path: string; fileId: string }>>();
+    const previousArtifactsByStep = new Map<
+      string,
+      Array<{ stepId: string; path: string; fileId: string }>
+    >();
     const executeStep: SkillChainStepExecutor = async (input) => {
       previousArtifactsByStep.set(input.stepId, input.previousArtifacts);
       const file = await createWorkspaceFile({
@@ -22,7 +29,11 @@ dbDescribe("skill chain runner persistence", () => {
         bytes: Buffer.from(`Output for ${input.stepId}`),
         contentType: "text/markdown",
       });
-      return { status: "SUCCEEDED", outputFileId: file.id, outputPath: file.path };
+      return {
+        status: "SUCCEEDED",
+        outputFileId: file.id,
+        outputPath: file.path,
+      };
     };
 
     const result = await runSkillChain({
@@ -35,13 +46,17 @@ dbDescribe("skill chain runner persistence", () => {
 
     expect(result.status).toBe("SUCCEEDED");
     expect(result.currentStepIndex).toBe(3);
-    expect(previousArtifactsByStep.get("planning")?.[0]?.stepId).toBe("market-research");
+    expect(previousArtifactsByStep.get("planning")?.[0]?.stepId).toBe(
+      "market-research",
+    );
     const state = await readState(userId, workspaceId, result.statePath);
     expect(state.status).toBe("SUCCEEDED");
     for (const step of result.steps) {
       expect(step.status).toBe("SUCCEEDED");
       expect(step.outputFileId).toBeTruthy();
-      await expect(getWorkspaceFileByPath(userId, workspaceId, step.outputPath)).resolves.toBeTruthy();
+      await expect(
+        getWorkspaceFileByPath(userId, workspaceId, step.outputPath),
+      ).resolves.toBeTruthy();
     }
   });
 
@@ -62,7 +77,11 @@ dbDescribe("skill chain runner persistence", () => {
         bytes: Buffer.from(`Output for ${input.stepId}`),
         contentType: "text/markdown",
       });
-      return { status: "SUCCEEDED", outputFileId: file.id, outputPath: file.path };
+      return {
+        status: "SUCCEEDED",
+        outputFileId: file.id,
+        outputPath: file.path,
+      };
     };
 
     const failed = await runSkillChain({
@@ -80,7 +99,12 @@ dbDescribe("skill chain runner persistence", () => {
     const stepOneOutput = failed.steps[0]?.outputFileId;
 
     failPlanning = false;
-    const resumed = await runSkillChain({ userId, workspaceId, resumeStatePath: failed.statePath, executeStep });
+    const resumed = await runSkillChain({
+      userId,
+      workspaceId,
+      resumeStatePath: failed.statePath,
+      executeStep,
+    });
 
     expect(resumed.status).toBe("SUCCEEDED");
     expect(resumed.steps[0]?.outputFileId).toBe(stepOneOutput);
@@ -92,7 +116,9 @@ dbDescribe("skill chain runner persistence", () => {
   });
 
   it("prechecks rendered output path collisions before executing steps", async () => {
-    const { userId, workspaceId } = await createFixture("chain-output-collision");
+    const { userId, workspaceId } = await createFixture(
+      "chain-output-collision",
+    );
     const manifest = makeManifest("chain-output-collision");
     manifest.steps[0].outputPath = `chains/${manifest.id}/{{runId}}/{{stepIndex}}-shared.md`;
     manifest.steps[1].outputPath = `chains/${manifest.id}/{{runId}}/01-shared.md`;
@@ -106,7 +132,11 @@ dbDescribe("skill chain runner persistence", () => {
         bytes: Buffer.from(`Output for ${input.stepId}`),
         contentType: "text/markdown",
       });
-      return { status: "SUCCEEDED", outputFileId: file.id, outputPath: file.path };
+      return {
+        status: "SUCCEEDED",
+        outputFileId: file.id,
+        outputPath: file.path,
+      };
     };
 
     await expect(
@@ -150,14 +180,28 @@ function makeManifest(id: string): SkillChainManifest {
   };
 }
 
-async function readState(userId: string, workspaceId: string, statePath: string): Promise<SkillChainState> {
-  const stateFile = await getWorkspaceFileByPath(userId, workspaceId, statePath);
+async function readState(
+  userId: string,
+  workspaceId: string,
+  statePath: string,
+): Promise<SkillChainState> {
+  const stateFile = await getWorkspaceFileByPath(
+    userId,
+    workspaceId,
+    statePath,
+  );
   if (!stateFile) throw new Error("State file missing.");
-  const { text } = await readWorkspaceTextFile(userId, workspaceId, stateFile.id);
+  const { text } = await readWorkspaceTextFile(
+    userId,
+    workspaceId,
+    stateFile.id,
+  );
   return JSON.parse(text) as SkillChainState;
 }
 
-async function createFixture(label: string): Promise<{ userId: string; workspaceId: string }> {
+async function createFixture(
+  label: string,
+): Promise<{ userId: string; workspaceId: string }> {
   const email = `${label}-${crypto.randomUUID()}@example.com`;
   const user = await prisma.user.create({ data: { email } });
   const workspace = await prisma.workspace.create({

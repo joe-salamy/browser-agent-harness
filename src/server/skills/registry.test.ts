@@ -39,7 +39,11 @@ describe("skill registry authorization and dispatch", () => {
     mocks.assertWorkspaceAccess.mockRejectedValueOnce(new Error("denied"));
 
     await expect(
-      runSkill({ userId: "user-1", workspaceId: "workspace-1", skillId: "core.research-synthesis" }),
+      runSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        skillId: "core.research-synthesis",
+      }),
     ).rejects.toThrow("denied");
 
     expect(mocks.writeAuditLog).not.toHaveBeenCalled();
@@ -50,7 +54,11 @@ describe("skill registry authorization and dispatch", () => {
 
   it("rejects unknown skill ids before access or audit side effects", async () => {
     await expect(
-      runSkill({ userId: "user-1", workspaceId: "workspace-1", skillId: "toString" }),
+      runSkill({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        skillId: "toString",
+      }),
     ).rejects.toThrow("Unknown skill.");
 
     expect(mocks.assertWorkspaceAccess).not.toHaveBeenCalled();
@@ -62,7 +70,11 @@ describe("skill registry authorization and dispatch", () => {
 
   it("forwards model and output path to research synthesis runtime", async () => {
     mocks.assertWorkspaceAccess.mockResolvedValueOnce({});
-    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-1", status: "SUCCEEDED", outputFileId: "file-1" });
+    mocks.runtimeRun.mockResolvedValueOnce({
+      runId: "run-1",
+      status: "SUCCEEDED",
+      outputFileId: "file-1",
+    });
 
     await expect(
       runSkill({
@@ -105,7 +117,9 @@ describe("skill registry authorization and dispatch", () => {
       }),
     ).resolves.toMatchObject({ runId: "run-web", status: "SUCCEEDED" });
 
-    expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ eventType: "skill.run.started" }));
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: "skill.run.started" }),
+    );
     expect(mocks.runWebSearchGroundingSkill).toHaveBeenCalledWith({
       userId: "user-1",
       workspaceId: "workspace-1",
@@ -135,7 +149,9 @@ describe("skill registry authorization and dispatch", () => {
       }),
     ).resolves.toMatchObject({ runId: "run-2", status: "SUCCEEDED" });
 
-    expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ eventType: "skill.run.started" }));
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: "skill.run.started" }),
+    );
     expect(mocks.buildSkillChainManifest).toHaveBeenCalledWith({
       userId: "user-1",
       workspaceId: "workspace-1",

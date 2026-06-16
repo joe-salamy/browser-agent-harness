@@ -24,19 +24,27 @@ export default async function WorkspacesPage() {
               Name
               <input className="input" name="name" required minLength={1} />
             </label>
-            <button className="btn" type="submit">Create</button>
+            <button className="btn" type="submit">
+              Create
+            </button>
           </form>
         </section>
         <section className="card">
           <h2>Your workspaces</h2>
           <div className="grid">
             {memberships.map(({ workspace, role }) => (
-              <Link className="card" key={workspace.id} href={`/workspaces/${workspace.id}`}>
+              <Link
+                className="card"
+                key={workspace.id}
+                href={`/workspaces/${workspace.id}`}
+              >
                 <strong>{workspace.name}</strong>
                 <p className="muted">Role: {role}</p>
               </Link>
             ))}
-            {memberships.length === 0 ? <p className="muted">No workspaces yet.</p> : null}
+            {memberships.length === 0 ? (
+              <p className="muted">No workspaces yet.</p>
+            ) : null}
           </div>
         </section>
       </div>

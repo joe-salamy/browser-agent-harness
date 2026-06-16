@@ -3,7 +3,10 @@ import { z } from "zod";
 
 export const SKILL_CHAIN_MANIFEST_VERSION = 1 as const;
 export const SKILL_CHAIN_STATE_VERSION = 1 as const;
-export const EXECUTABLE_CHAIN_SKILL_IDS = ["core.research-synthesis", "core.web-search-grounding"] as const;
+export const EXECUTABLE_CHAIN_SKILL_IDS = [
+  "core.research-synthesis",
+  "core.web-search-grounding",
+] as const;
 export const CHAIN_AUTHORING_SKILL_ID = "core.chain-builder" as const;
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
@@ -22,14 +25,24 @@ function normalizeSkillChainWorkspacePath(inputPath: string): string {
   if (raw.length === 0 || raw.length > 512 || CONTROL_CHAR_PATTERN.test(raw)) {
     throw new Error("Skill chain outputPath must be a valid workspace path.");
   }
-  if (raw.startsWith("/") || raw.split("/").some((segment) => WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment))) {
+  if (
+    raw.startsWith("/") ||
+    raw
+      .split("/")
+      .some((segment) => WINDOWS_DRIVE_SEGMENT_PATTERN.test(segment))
+  ) {
     throw new Error("Skill chain outputPath must be relative.");
   }
   if (raw.split("/").includes("..")) {
     throw new Error("Skill chain outputPath cannot traverse directories.");
   }
   const normalized = path.posix.normalize(raw);
-  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized.split("/").includes("..")) {
+  if (
+    normalized === "." ||
+    normalized.startsWith("../") ||
+    normalized === ".." ||
+    normalized.split("/").includes("..")
+  ) {
     throw new Error("Skill chain outputPath cannot traverse directories.");
   }
   if (!normalized.startsWith("chains/")) {
@@ -40,14 +53,25 @@ function normalizeSkillChainWorkspacePath(inputPath: string): string {
 
 function renderOutputPathTemplateForValidation(template: string): string {
   let hasUnsupportedToken = false;
-  const rendered = template.replace(OUTPUT_PATH_TOKEN_PATTERN, (match, token: string) => {
-    if (Object.prototype.hasOwnProperty.call(OUTPUT_PATH_TOKEN_VALUES, token)) {
-      return OUTPUT_PATH_TOKEN_VALUES[token as keyof typeof OUTPUT_PATH_TOKEN_VALUES];
-    }
-    hasUnsupportedToken = true;
-    return match;
-  });
-  if (hasUnsupportedToken || rendered.includes("{{") || rendered.includes("}}")) {
+  const rendered = template.replace(
+    OUTPUT_PATH_TOKEN_PATTERN,
+    (match, token: string) => {
+      if (
+        Object.prototype.hasOwnProperty.call(OUTPUT_PATH_TOKEN_VALUES, token)
+      ) {
+        return OUTPUT_PATH_TOKEN_VALUES[
+          token as keyof typeof OUTPUT_PATH_TOKEN_VALUES
+        ];
+      }
+      hasUnsupportedToken = true;
+      return match;
+    },
+  );
+  if (
+    hasUnsupportedToken ||
+    rendered.includes("{{") ||
+    rendered.includes("}}")
+  ) {
     throw new Error("Unsupported template token in outputPath.");
   }
   return rendered;
@@ -60,11 +84,16 @@ const outputPathTemplateSchema = z
   .max(240)
   .superRefine((template, ctx) => {
     try {
-      normalizeSkillChainWorkspacePath(renderOutputPathTemplateForValidation(template));
+      normalizeSkillChainWorkspacePath(
+        renderOutputPathTemplateForValidation(template),
+      );
     } catch (error) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: error instanceof Error ? error.message : "Invalid skill chain outputPath.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Invalid skill chain outputPath.",
       });
     }
   });
@@ -99,8 +128,17 @@ export const SkillChainManifestSchema = z
 
 export type SkillChainManifest = z.infer<typeof SkillChainManifestSchema>;
 
-export type SkillChainStatus = "RUNNING" | "WAITING_FOR_INPUT" | "SUCCEEDED" | "FAILED";
-export type SkillChainStepStatus = "PENDING" | "RUNNING" | "WAITING_FOR_INPUT" | "SUCCEEDED" | "FAILED";
+export type SkillChainStatus =
+  | "RUNNING"
+  | "WAITING_FOR_INPUT"
+  | "SUCCEEDED"
+  | "FAILED";
+export type SkillChainStepStatus =
+  | "PENDING"
+  | "RUNNING"
+  | "WAITING_FOR_INPUT"
+  | "SUCCEEDED"
+  | "FAILED";
 
 export type SkillChainStepState = {
   id: string;
@@ -135,7 +173,9 @@ export type SkillChainState = {
 export function parseSkillChainManifest(value: unknown): SkillChainManifest {
   const result = SkillChainManifestSchema.safeParse(value);
   if (result.success) return result.data;
-  const error = new Error("Invalid skill chain manifest.") as Error & { cause?: unknown };
+  const error = new Error("Invalid skill chain manifest.") as Error & {
+    cause?: unknown;
+  };
   error.cause = result.error.issues;
   throw error;
 }
@@ -174,12 +214,17 @@ export function renderSkillChainOutputPath(input: {
     .replaceAll("{{stepId}}", input.stepId)
     .replaceAll("{{stepIndex}}", stepIndex);
   if (outputPath.includes("{{") || outputPath.includes("}}")) {
-    throw new Error(`Unsupported template token in outputPath for step ${input.stepId}.`);
+    throw new Error(
+      `Unsupported template token in outputPath for step ${input.stepId}.`,
+    );
   }
   try {
     return normalizeSkillChainWorkspacePath(outputPath);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid skill chain outputPath.";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Invalid skill chain outputPath.";
     throw new Error(`${message} Step: ${input.stepId}.`);
   }
 }
