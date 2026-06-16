@@ -8,7 +8,7 @@ Implemented the greenfield MVP vertical slice for Browser Agent Harness.
 
 ## Implemented
 
-- Next.js App Router scaffold with TypeScript, Tailwind, ESLint, Docker Compose, and `.env.example`.
+- Next.js App Router scaffold with TypeScript, Tailwind, ESLint, and `.env.example`.
 - Prisma schema for Auth.js, workspaces, files/versions, model credentials, runs, audit logs, MCP registry, and skills.
 - Credentials auth with seeded demo user: `demo@example.com` / `demo-password`.
 - Workspace shell:
@@ -20,8 +20,8 @@ Implemented the greenfield MVP vertical slice for Browser Agent Harness.
   - export workspace zip
   - review audit log
 - Storage:
-  - S3-compatible implementation for MinIO/production-compatible object stores
-  - local `.data/object-store` fallback when `S3_ENDPOINT` is unset
+  - S3-compatible implementation for production-compatible object stores
+  - local `.data/object-store` default when `S3_ENDPOINT` is unset
 - Model layer:
   - AES-256-GCM credential encryption
   - OpenRouter adapter
@@ -67,13 +67,36 @@ Security/regression checks performed:
    npm install
    ```
 
-2. Start local services:
+2. Prepare PostgreSQL.
 
-   ```bash
-   docker compose up -d postgres minio minio-init
-   ```
+   Supported options:
+
+   1. Native local default:
+      - Install PostgreSQL 16 on Windows, preferably with:
+
+        ```bash
+        winget install -e --id PostgreSQL.PostgreSQL.16
+        ```
+
+        Use the official PostgreSQL installer if `winget` is unavailable.
+      - Start the PostgreSQL Windows service if the installer did not start it.
+      - Create the dev role/database once using `psql` connected as the local `postgres` admin user:
+
+        ```bash
+        psql -U postgres -h localhost -d postgres -c "CREATE USER bah WITH PASSWORD 'bah_dev_password';"
+        psql -U postgres -h localhost -d postgres -c "CREATE DATABASE browser_agent_harness OWNER bah;"
+        ```
+
+        If either command reports the user/database already exists, keep the existing objects and continue.
+
+   2. Hosted fallback:
+      - Create a PostgreSQL database in Neon, Supabase, Railway, or another PostgreSQL-compatible provider.
+      - Put that provider's pooled or direct connection string into `DATABASE_URL` in `.env.local`.
+      - Do not change Prisma schema or app code for hosted PostgreSQL.
 
 3. Create `.env.local` from `.env.example`.
+
+   Copying `.env.example` now enables local object storage because no `S3_ENDPOINT` is present.
 
    Required local values:
    - `DATABASE_URL`
