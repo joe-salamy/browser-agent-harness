@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "bb6a9f9030fb53fdab7bd86731b7a45196448118",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/docker-free-local-development-plan",
+  "feature_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-docker-free-local-development-plan",
+  "integration_branch": "integration/docker-free-local-development-plan-20260615-215601",
+  "integration_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-integrate-docker-free-local-development-plan-20260615-215601",
+  "merge_mode": "squash",
+  "plan_path": "C:\\Users\\joesa\\Code\\browser-agent-harness-docker-free-local-development-plan\\.omp\\worktree-flow\\docker-free-local-development-plan\\plan.md",
+  "plan_title": "Docker-free local development plan",
+  "run_id": "docker-free-local-development-plan-20260615-214735",
+  "slug": "docker-free-local-development-plan"
+}
