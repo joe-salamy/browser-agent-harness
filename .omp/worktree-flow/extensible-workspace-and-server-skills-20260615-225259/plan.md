@@ -306,6 +306,7 @@ Run from `C:/Users/joesa/Code/browser-agent-harness` after implementation:
    - Run `npm run dev`.
    - In a workspace where the signed-in user is OWNER or EDITOR, upload these files with exact workspace paths:
      - `skills/my-skill/SKILL.md`:
+
        ```md
        ---
        name: my-skill
@@ -316,12 +317,15 @@ Run from `C:/Users/joesa/Code/browser-agent-harness` after implementation:
 
        Return the script stdout and cite the schema reference title.
        ```
+
      - `skills/my-skill/references/schema.md`:
+
        ```md
        # Test Schema
 
        The expected field is customerName.
        ```
+
      - `skills/my-skill/scripts/echo.js`:
        ```js
        process.stdin.resume();
@@ -332,6 +336,7 @@ Run from `C:/Users/joesa/Code/browser-agent-harness` after implementation:
          console.log(`script-ok:${parsed.skillId}:${parsed.skillName}`);
        });
        ```
+
    - Refresh the workspace page. Expected: the skill selector includes `workspace.my-skill — Echoes script output and cites the schema reference.`
    - Select `workspace.my-skill`, check `Allow scripts`, enter prompt `Use the uploaded schema.`, and run. Expected: a succeeded run creates an output file; audit log contains `skill.run.started`, `skill.script.started`, `skill.script.finished`, `agent.model.called`, and `agent.output.created`; generated output has access to both `Test Schema` and `script-ok:workspace.my-skill:my-skill`.
    - Uncheck `Allow scripts` and run the same skill. Expected: request fails with `Skill script execution is not enabled for this run.`, no model output file is created, and no `agent.model.called` audit event is emitted for that failed run.
