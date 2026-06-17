@@ -800,6 +800,7 @@ Read:
 {f"- `{self.handoff_dir.as_posix()}/conflict-resolution-summary.md`" if post_conflict else ""}
 
 Audit the actual diff against `{self.base}`. Fix confirmed issues and run relevant tests.
+Load every skill that is relevant to the diff, plan, implementation summary, and any conflict-resolution summary before auditing or fixing issues.
 {audit_finish_instruction}
 Do not commit files under `{self.handoff_dir.as_posix()}/` or `{self.worktree_flow_dir.as_posix()}/`; they are workflow artifacts and must remain untracked.
 Write `{summary.as_posix()}` before finishing.

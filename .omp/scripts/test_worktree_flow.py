@@ -109,6 +109,20 @@ class WorktreeArtifactTests(unittest.TestCase):
             config, worktree_flow.CommandRunner(verbose=False)
         )
 
+    def test_audit_prompt_requires_loading_relevant_skills(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            worktree = Path(temp_dir) / "worktree"
+            flow = self.make_flow(repo)
+
+            prompt = flow.audit_prompt(worktree, repo / "plan.md", post_conflict=False)
+
+            self.assertIn("Use the audit-worktree skill.", prompt)
+            self.assertIn(
+                "Load every skill that is relevant to the diff, plan, implementation summary",
+                prompt,
+            )
+
     def test_archive_handoff_copies_plan_md(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
