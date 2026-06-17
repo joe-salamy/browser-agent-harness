@@ -4,7 +4,17 @@ This app can run locally against managed cloud services. Start by copying `.env.
 
 ## 1. PostgreSQL
 
-Provision a PostgreSQL database with any managed provider. Put its Prisma-compatible connection string in:
+Recommended provider: [Neon](https://neon.com/pricing). It has a $0 free plan with no credit card, a generous enough hobby/prototype allowance, and serverless scale-to-zero behavior that keeps idle projects cheap.
+
+Other reasonable managed PostgreSQL options:
+
+| Provider | Best fit | Cost/ease notes |
+| --- | --- | --- |
+| [Neon](https://neon.com/pricing) | Most projects here | Recommended: lowest-friction Postgres-only setup, free tier, no credit card, Prisma-friendly connection strings. |
+| [Supabase](https://supabase.com/pricing) | Projects that may also need auth, APIs, or storage | Free tier includes a dedicated Postgres database, but the free database size is smaller and inactive projects can pause. |
+| [Railway](https://docs.railway.com/databases/postgresql/) | Deploying app services and Postgres together | Very easy operationally, but starts around a paid hobby workflow and usage can grow with CPU/RAM/storage. |
+
+After provisioning the database, put its Prisma-compatible connection string in:
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
