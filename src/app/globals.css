@@ -8,6 +8,46 @@
   --border: #cbd5e1;
   --card: #ffffff;
   --accent: #2563eb;
+  --error: #b91c1c;
+  --secondary-bg: #e2e8f0;
+  --secondary-fg: #0f172a;
+  --input-bg: #ffffff;
+  --badge-bg: #e0f2fe;
+  --badge-fg: #075985;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #0f172a;
+    --foreground: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #334155;
+    --card: #1e293b;
+    --accent: #3b82f6;
+    --error: #f87171;
+    --secondary-bg: #334155;
+    --secondary-fg: #e2e8f0;
+    --input-bg: #1e293b;
+    --badge-bg: #082f49;
+    --badge-fg: #7dd3fc;
+  }
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #334155;
+  --card: #1e293b;
+  --accent: #3b82f6;
+  --error: #f87171;
+  --secondary-bg: #334155;
+  --secondary-fg: #e2e8f0;
+  --input-bg: #1e293b;
+  --badge-bg: #082f49;
+  --badge-fg: #7dd3fc;
 }
 
 * {
@@ -48,7 +88,7 @@ select {
   align-items: center;
 }
 .error-text {
-  color: #b91c1c;
+  color: var(--error);
 }
 .card {
   background: var(--card);
@@ -72,8 +112,8 @@ select {
   text-decoration: none;
 }
 .btn.secondary {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--secondary-bg);
+  color: var(--secondary-fg);
 }
 .input,
 textarea,
@@ -82,7 +122,7 @@ select {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
-  background: white;
+  background: var(--input-bg);
 }
 .grid {
   display: grid;
@@ -112,8 +152,8 @@ select {
   display: inline-flex;
   border-radius: 999px;
   padding: 2px 8px;
-  background: #e0f2fe;
-  color: #075985;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
   font-size: 12px;
   font-weight: 700;
 }

@@ -56,7 +56,7 @@ export function SignInForm() {
         />
       </label>
       {error ? (
-        <p role="alert" style={{ color: "#b91c1c" }}>
+        <p role="alert" className="error-text">
           {error}
         </p>
       ) : null}
