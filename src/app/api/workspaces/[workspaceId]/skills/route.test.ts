@@ -32,7 +32,8 @@ beforeEach(() => {
       id: "server.research-synthesis",
       name: "research-synthesis",
       source: "server",
-      description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
+      description:
+        "Synthesizes supported workspace text files into a sourced Markdown summary.",
       chainRunnable: true,
       hasEntrypoint: false,
       referenceCount: 0,

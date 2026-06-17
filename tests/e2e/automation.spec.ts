@@ -40,9 +40,7 @@ test("Automation dry-runs manifest creation, chain runs, and resumes", async ({
   await expect(page.getByRole("heading", { name: "Automation" })).toBeVisible();
 
   await page.getByLabel("Goal").fill("Summarize workspace files.");
-  await page
-    .getByRole("button", { name: "Preview manifest creation" })
-    .click();
+  await page.getByRole("button", { name: "Preview manifest creation" }).click();
   await expect(page.getByText(/Status: DRY_RUN/).first()).toBeVisible();
   await expect(page.getByText(/Goal characters:/)).toBeVisible();
 
@@ -62,9 +60,7 @@ test("Automation dry-runs manifest creation, chain runs, and resumes", async ({
   };
 
   await chooseRunMode(page, "New run");
-  await page
-    .getByRole("radio", { name: "Paste/import manifest JSON" })
-    .check();
+  await page.getByRole("radio", { name: "Paste/import manifest JSON" }).check();
   await page
     .getByRole("textbox", { name: /manifest json/i })
     .fill(JSON.stringify(manifest, null, 2));

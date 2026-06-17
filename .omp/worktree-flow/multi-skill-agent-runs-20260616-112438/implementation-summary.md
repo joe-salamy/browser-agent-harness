@@ -1,14 +1,17 @@
 # Multi-Skill Agent Runs Implementation Summary
 
 ## Plan
+
 - Plan path: `.omp/worktree-flow/multi-skill-agent-runs/plan.md`
 
 ## Worktree and branch
+
 - Worktree path: `C:\Users\joesa\Code\browser-agent-harness-multi-skill-agent-runs`
 - Branch: `feature/multi-skill-agent-runs`
 - Commit: `60d7f1a3db21278a09337b76037c553e64515e57`
 
 ## Changed files
+
 - Added server directory skills:
   - `skills/research-synthesis/SKILL.md`
   - `skills/web-search-grounding/SKILL.md`
@@ -44,6 +47,7 @@
   - `README.md`
 
 ## Behavior changes
+
 - Legacy `core.*` skill IDs are removed from normal validation and listing. Valid skill IDs are now only `workspace.*` and `server.*`.
 - Built-in harness skills now live as ordinary repo-local server directory skills under `skills/<name>/SKILL.md` and are discovered as:
   - `server.research-synthesis`
@@ -62,6 +66,7 @@
 - Tavily-specific web search code and `TAVILY_API_KEY` documentation were removed. `server.web-search-grounding` is an instruction-only directory skill.
 
 ## Tests and checks run
+
 - `npm ci`
   - Installed dependencies from `package-lock.json` because `node_modules` was absent and `vitest` was not available.
 - `npm run prisma:generate`
@@ -78,16 +83,19 @@
   - Passed.
 
 ## Skipped checks
+
 - Manual UI smoke test was not run. No provider credentials or running development server were configured in this task context.
 - Full Playwright E2E was not run. The approved plan explicitly said not to update `tests/e2e/mvp.spec.ts`; focused route/UI/component coverage was run instead.
 
 ## Implementation decisions and tradeoffs
+
 - Used a static `runSkillEntrypoint` import in `src/server/skills/registry.ts` to comply with the project rule against literal dynamic imports. Behavior remains gated by `allowScripts` and `SKILL_SCRIPTS_ENABLED` before entrypoint execution.
 - Duplicate selected skill IDs are rejected before any skill loading. This is stricter than merely rejecting before loading the duplicate and avoids partial side effects.
 - `core.research-synthesis` remains only in `src/server/skills/registry.test.ts` as an intentional rejection assertion.
 - Directory tests now assert containment because the repo-root `skills/` directory is intentionally discovered during tests.
 
 ## Assumptions, blockers, residual risks, follow-up
+
 - Assumption: The workflow expects the implementation commit only; `.omp/handoff/` and `.omp/worktree-flow/` remain untracked and were not committed.
 - Residual risk: Existing external clients posting to the deleted `/skills/[skillId]` route must migrate to `/agent-runs` with repeated `skillIds`; this is intentional clean cutover per plan.
 - Residual risk: `server.web-search-grounding` no longer performs external web search. This is intentional per plan; future external search should be added through a generic tool/entrypoint model, not a hard-coded skill branch.

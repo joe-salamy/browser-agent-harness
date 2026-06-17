@@ -111,8 +111,11 @@ function normalizeEntrypoint(value: unknown): string | undefined {
 }
 
 function parseSkillDocument(markdown: string): ParsedSkillDocument {
-  if (!markdown.startsWith("---")) throw new Error("Skill frontmatter is required.");
-  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/.exec(markdown);
+  if (!markdown.startsWith("---"))
+    throw new Error("Skill frontmatter is required.");
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/.exec(
+    markdown,
+  );
   if (!match) throw new Error("Skill frontmatter is required.");
   const frontmatter = parseDocument(match[1]).toJSON();
   if (!isRecord(frontmatter)) throw new Error("Invalid skill frontmatter.");
@@ -129,13 +132,13 @@ function parseSkillDocument(markdown: string): ParsedSkillDocument {
     throw new Error("Skill description is required.");
   }
   const rawChainRunnable = frontmatter.chainRunnable;
-  if (
-    rawChainRunnable !== undefined &&
-    typeof rawChainRunnable !== "boolean"
-  ) {
+  if (rawChainRunnable !== undefined && typeof rawChainRunnable !== "boolean") {
     throw new Error("Invalid skill chainRunnable.");
   }
-  const instructions = truncateText(match[2] ?? "", MAX_SKILL_INSTRUCTIONS_CHARS).text;
+  const instructions = truncateText(
+    match[2] ?? "",
+    MAX_SKILL_INSTRUCTIONS_CHARS,
+  ).text;
   return {
     name,
     description,
@@ -198,7 +201,11 @@ function contentTypeForPath(assetPath: string): string {
 
 function isWorkspaceSkillPath(pathValue: string): boolean {
   const segments = pathValue.split("/");
-  return segments.length === 3 && segments[0] === "skills" && segments[2] === SKILL_MARKDOWN;
+  return (
+    segments.length === 3 &&
+    segments[0] === "skills" &&
+    segments[2] === SKILL_MARKDOWN
+  );
 }
 
 function workspaceSkillNameFromPath(pathValue: string): string | null {
@@ -207,7 +214,10 @@ function workspaceSkillNameFromPath(pathValue: string): string | null {
   return SKILL_NAME_PATTERN.test(name) ? name : null;
 }
 
-function isWorkspaceAssetForSkill(pathValue: string, skillName: string): boolean {
+function isWorkspaceAssetForSkill(
+  pathValue: string,
+  skillName: string,
+): boolean {
   return (
     pathValue.startsWith(`skills/${skillName}/references/`) ||
     pathValue.startsWith(`skills/${skillName}/scripts/`)
@@ -244,7 +254,8 @@ async function loadWorkspaceAsset(input: {
   skillName: string;
   remainingReferenceChars: number;
 }): Promise<{ asset: SkillAsset | null; consumedReferenceChars: number }> {
-  if (!input.file.currentVersion) return { asset: null, consumedReferenceChars: 0 };
+  if (!input.file.currentVersion)
+    return { asset: null, consumedReferenceChars: 0 };
   if (!isCoreReadableText(input.file.path, input.file.contentType)) {
     return { asset: null, consumedReferenceChars: 0 };
   }
@@ -253,7 +264,10 @@ async function loadWorkspaceAsset(input: {
     input.skillName,
   );
   const maxChars = relativePath.startsWith("references/")
-    ? Math.max(0, Math.min(MAX_SKILL_ASSET_CHARS, input.remainingReferenceChars))
+    ? Math.max(
+        0,
+        Math.min(MAX_SKILL_ASSET_CHARS, input.remainingReferenceChars),
+      )
     : MAX_SKILL_ASSET_CHARS;
   const { text, truncated: readTruncated } = await readWorkspaceTextFileCapped(
     input.userId,
@@ -295,13 +309,20 @@ async function loadWorkspaceSkillByName(input: {
   workspaceId: string;
   name: string;
 }): Promise<LoadedDirectorySkill | null> {
-  const skillPath = normalizeWorkspacePath(`skills/${input.name}/${SKILL_MARKDOWN}`);
-  const file = await getWorkspaceFileByPath(input.userId, input.workspaceId, skillPath);
+  const skillPath = normalizeWorkspacePath(
+    `skills/${input.name}/${SKILL_MARKDOWN}`,
+  );
+  const file = await getWorkspaceFileByPath(
+    input.userId,
+    input.workspaceId,
+    skillPath,
+  );
   if (!file) return null;
   const markdown = await readWorkspaceSkillMarkdown({ ...input, file });
   if (markdown === null) return null;
   const parsed = parseSkillDocument(markdown);
-  if (parsed.name !== input.name) throw new Error("Skill name does not match directory.");
+  if (parsed.name !== input.name)
+    throw new Error("Skill name does not match directory.");
   const allFiles = await listWorkspaceFiles(input.userId, input.workspaceId);
   let remainingReferenceChars = MAX_SKILL_REFERENCE_TOTAL_CHARS;
   const references: SkillAsset[] = [];
@@ -326,7 +347,12 @@ async function loadWorkspaceSkillByName(input: {
   references.sort((a, b) => a.path.localeCompare(b.path));
   scripts.sort((a, b) => a.path.localeCompare(b.path));
   return {
-    ...summaryFromParsed("workspace", parsed, references.length, scripts.length),
+    ...summaryFromParsed(
+      "workspace",
+      parsed,
+      references.length,
+      scripts.length,
+    ),
     instructions: parsed.instructions,
     references,
     scripts,
@@ -345,7 +371,8 @@ function configuredServerRoots(): ServerSkillRoot[] {
   const result: ServerSkillRoot[] = [];
   for (const root of roots) {
     const absoluteRoot = path.resolve(root);
-    const key = process.platform === "win32" ? absoluteRoot.toLowerCase() : absoluteRoot;
+    const key =
+      process.platform === "win32" ? absoluteRoot.toLowerCase() : absoluteRoot;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push({ displayRoot: root, absoluteRoot });
@@ -354,7 +381,8 @@ function configuredServerRoots(): ServerSkillRoot[] {
     const trimmed = root.trim();
     if (!trimmed || !path.isAbsolute(trimmed)) continue;
     const absoluteRoot = path.resolve(trimmed);
-    const key = process.platform === "win32" ? absoluteRoot.toLowerCase() : absoluteRoot;
+    const key =
+      process.platform === "win32" ? absoluteRoot.toLowerCase() : absoluteRoot;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push({ displayRoot: trimmed, absoluteRoot });
@@ -364,7 +392,10 @@ function configuredServerRoots(): ServerSkillRoot[] {
 
 function isPathInside(parent: string, child: string): boolean {
   const relative = path.relative(parent, child);
-  return relative === "" || (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative));
+  return (
+    relative === "" ||
+    (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative))
+  );
 }
 
 async function realPathIfExists(pathValue: string): Promise<string | null> {
@@ -382,7 +413,9 @@ async function readTextFileCapped(filePath: string, maxChars: number) {
     const buffer = Buffer.alloc(cappedChars + 1);
     const { bytesRead } = await file.read(buffer, 0, cappedChars + 1, 0);
     const truncated = bytesRead > cappedChars;
-    const bytes = truncated ? buffer.subarray(0, cappedChars) : buffer.subarray(0, bytesRead);
+    const bytes = truncated
+      ? buffer.subarray(0, cappedChars)
+      : buffer.subarray(0, bytesRead);
     return { ...truncateText(bytes.toString("utf8"), cappedChars), truncated };
   } finally {
     await file.close();
@@ -417,10 +450,16 @@ async function readServerAssets(input: {
         continue;
       }
       if (!entry.isFile()) continue;
-      const relativePath = path.relative(input.skillDir, realEntryPath).replaceAll(path.sep, "/");
-      const maxChars = input.assetDirName === "references"
-        ? Math.max(0, Math.min(MAX_SKILL_ASSET_CHARS, remainingReferenceChars))
-        : MAX_SKILL_ASSET_CHARS;
+      const relativePath = path
+        .relative(input.skillDir, realEntryPath)
+        .replaceAll(path.sep, "/");
+      const maxChars =
+        input.assetDirName === "references"
+          ? Math.max(
+              0,
+              Math.min(MAX_SKILL_ASSET_CHARS, remainingReferenceChars),
+            )
+          : MAX_SKILL_ASSET_CHARS;
       const loaded = await readTextFileCapped(realEntryPath, maxChars);
       if (input.assetDirName === "references") {
         remainingReferenceChars -= loaded.text.length;
@@ -450,14 +489,20 @@ async function loadServerSkillFromDirectory(input: {
   const skillPath = path.join(realSkillDir, SKILL_MARKDOWN);
   const realSkillPath = await realPathIfExists(skillPath);
   if (!realSkillPath || !isPathInside(realSkillDir, realSkillPath)) return null;
-  const markdown = (await readTextFileCapped(
-    realSkillPath,
-    MAX_SKILL_MARKDOWN_CHARS,
-  )).text;
+  const markdown = (
+    await readTextFileCapped(realSkillPath, MAX_SKILL_MARKDOWN_CHARS)
+  ).text;
   const parsed = parseSkillDocument(markdown);
-  if (parsed.name !== input.name) throw new Error("Skill name does not match directory.");
-  const references = await readServerAssets({ skillDir: realSkillDir, assetDirName: "references" });
-  const scripts = await readServerAssets({ skillDir: realSkillDir, assetDirName: "scripts" });
+  if (parsed.name !== input.name)
+    throw new Error("Skill name does not match directory.");
+  const references = await readServerAssets({
+    skillDir: realSkillDir,
+    assetDirName: "references",
+  });
+  const scripts = await readServerAssets({
+    skillDir: realSkillDir,
+    assetDirName: "scripts",
+  });
   return {
     ...summaryFromParsed("server", parsed, references.length, scripts.length),
     instructions: parsed.instructions,
@@ -475,13 +520,15 @@ async function listServerSkillNames(root: ServerSkillRoot): Promise<string[]> {
     const entries = await fs.readdir(realRoot, { withFileTypes: true });
     const names: string[] = [];
     for (const entry of entries) {
-      if (!entry.isDirectory() || !SKILL_NAME_PATTERN.test(entry.name)) continue;
+      if (!entry.isDirectory() || !SKILL_NAME_PATTERN.test(entry.name))
+        continue;
       const skillDir = path.join(realRoot, entry.name);
       const realSkillDir = await realPathIfExists(skillDir);
       if (!realSkillDir || !isPathInside(realRoot, realSkillDir)) continue;
       const skillPath = path.join(realSkillDir, SKILL_MARKDOWN);
       const realSkillPath = await realPathIfExists(skillPath);
-      if (!realSkillPath || !isPathInside(realSkillDir, realSkillPath)) continue;
+      if (!realSkillPath || !isPathInside(realSkillDir, realSkillPath))
+        continue;
       names.push(entry.name);
     }
     return names.sort((a, b) => a.localeCompare(b));
@@ -497,7 +544,10 @@ async function listWorkspaceSkillSummaries(input: {
   const candidates = await discoverWorkspaceCandidates(input);
   const summaries: SkillSummary[] = [];
   for (const candidate of candidates) {
-    const loaded = await loadWorkspaceSkillByName({ ...input, name: candidate.name });
+    const loaded = await loadWorkspaceSkillByName({
+      ...input,
+      name: candidate.name,
+    });
     if (!loaded) continue;
     summaries.push({
       id: loaded.id,

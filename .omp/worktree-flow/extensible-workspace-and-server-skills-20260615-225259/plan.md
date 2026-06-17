@@ -9,6 +9,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
 1. Add a directory-skill model and loader.
    - Add `yaml` to `package.json` dependencies and update `package-lock.json`; use it only for `SKILL.md` YAML frontmatter parsing.
    - Create `src/server/skills/directory.ts` with these exported types:
+
      ```ts
      export type SkillSource = "core" | "server" | "workspace";
 
@@ -38,6 +39,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
        entrypoint?: string;
      };
      ```
+
    - Support exactly this `SKILL.md` frontmatter contract:
      ```yaml
      ---
@@ -53,18 +55,25 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
      - Built-in core skills keep their existing IDs: `core.research-synthesis`, `core.web-search-grounding`, `core.chain-builder`.
      - Server filesystem skills use `server.<name>`, for example `server.my-skill`.
      - Workspace skills use `workspace.<name>`, for example `workspace.my-skill`.
-     This avoids precedence ambiguity when a workspace and server install both contain `my-skill`.
+       This avoids precedence ambiguity when a workspace and server install both contain `my-skill`.
    - Discover workspace skills from existing workspace files only. A workspace skill root is exactly `skills/<name>/`; the required file is exactly `skills/<name>/SKILL.md`; optional assets are any readable text files under `skills/<name>/references/` and `skills/<name>/scripts/`. Reuse `listWorkspaceFiles`, `getWorkspaceFileByPath`, `readWorkspaceTextFile`, `normalizeWorkspacePath`, and `isCoreReadableText` from `src/server/workspaces/files.ts`; do not add a second workspace asset store.
    - Discover server skills one directory level below these roots:
      - `<process.cwd()>/skills/<name>/SKILL.md`
      - `<process.cwd()>/.agents/skills/<name>/SKILL.md`
      - each absolute directory listed in `BROWSER_AGENT_SKILL_ROOTS`, split with `path.delimiter`, as `<root>/<name>/SKILL.md`
-     Reject server roots or asset paths that resolve outside the configured root or skill directory.
+       Reject server roots or asset paths that resolve outside the configured root or skill directory.
    - Apply content caps in `directory.ts` and export them for tests: `MAX_SKILL_INSTRUCTIONS_CHARS = 40_000`, `MAX_SKILL_REFERENCE_TOTAL_CHARS = 80_000`, `MAX_SKILL_ASSET_CHARS = 20_000`. Truncate text assets at the caps and set `truncated: true`; do not reject otherwise-valid skills for large reference files.
    - Add exported functions:
      ```ts
-     export async function listDirectorySkills(input: { userId: string; workspaceId: string }): Promise<SkillSummary[]>;
-     export async function loadDirectorySkill(input: { userId: string; workspaceId: string; skillId: string }): Promise<LoadedDirectorySkill | null>;
+     export async function listDirectorySkills(input: {
+       userId: string;
+       workspaceId: string;
+     }): Promise<SkillSummary[]>;
+     export async function loadDirectorySkill(input: {
+       userId: string;
+       workspaceId: string;
+       skillId: string;
+     }): Promise<LoadedDirectorySkill | null>;
      export function isValidSkillId(skillId: string): boolean;
      ```
      `listDirectorySkills` returns workspace summaries sorted by `id`, then server summaries sorted by `id`. `loadDirectorySkill` returns only workspace/server skills; core summaries and core dispatch stay in `registry.ts`.
@@ -73,6 +82,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
    - In `src/server/skills/registry.ts`, rename `BUILT_IN_SKILLS` to `CORE_SKILLS` and keep the three existing core entries and their `requiredPermissions` literals unchanged.
    - Export `listAvailableSkills(input)` from `registry.ts`. It must combine `CORE_SKILLS` summaries first with `listDirectorySkills(input)` results after them so API/UI/builder callers have one import path.
    - Add:
+
      ```ts
      export class UnknownSkillError extends Error {
        constructor(skillId: string);
@@ -88,6 +98,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
        allowScripts?: boolean;
      };
      ```
+
    - `runSkill(input: RunSkillInput)` must:
      1. Reject syntactically invalid IDs with `UnknownSkillError` before access, audit, model, or script side effects. Valid IDs are `core.<slug>`, `workspace.<slug>`, and `server.<slug>`, where slug uses the same lowercase hyphen regex as skill names.
      2. Require `WorkspaceRole.EDITOR` via `assertWorkspaceAccess` before resolving workspace/server skill contents.
@@ -97,6 +108,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
      6. Dispatch existing core skills exactly as today: research synthesis composes the existing `Synthesize the readable workspace files into: Summary, Key Findings, Source Notes, and Recommended Next Steps.` prompt; web search calls `runWebSearchGroundingSkill`; chain builder calls `buildSkillChainManifest`.
      7. Dispatch directory skills through a new helper `runDirectorySkill` in `registry.ts` or `src/server/skills/directory-runner.ts`.
    - `runDirectorySkill` must call `minimalAgentRuntime.run` and preserve the existing `AgentRunResult` contract. Compose the runtime prompt exactly as:
+
      ```text
      Skill: <skill.name>
      Description: <skill.description>
@@ -108,6 +120,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
      User task:
      <trimmed user prompt, or "Run this skill." when prompt is blank>
      ```
+
    - Pass directory assets through `supplementalContexts`:
      - Label `Skill References`; content contains each reference as `## <relative path>\n<truncated marker if needed>\n<text>`.
      - Label `Skill Scripts`; content contains each script file as `## <relative path>\n<truncated marker if needed>\n<text>` so the model can reason about available scripts even when no entrypoint is executed.
@@ -116,6 +129,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
 
 3. Add audited, opt-in script execution for directory skill entrypoints.
    - Create `src/server/skills/script-runner.ts` with:
+
      ```ts
      export type SkillScriptRunInput = {
        userId: string;
@@ -135,18 +149,21 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
        durationMs: number;
      };
 
-     export async function runSkillEntrypoint(input: SkillScriptRunInput): Promise<SkillScriptRunResult>;
+     export async function runSkillEntrypoint(
+       input: SkillScriptRunInput,
+     ): Promise<SkillScriptRunResult>;
      ```
+
    - Only execute an entrypoint when both are true:
      - `input.allowScripts === true` on `runSkill`.
      - `process.env.SKILL_SCRIPTS_ENABLED === "true"`.
-     If a loaded directory skill has `entrypoint` and either condition is false, fail before model calls with the exact message `Skill script execution is not enabled for this run.` If a skill has scripts but no `entrypoint`, never execute them; include them only in `Skill Scripts` context.
+       If a loaded directory skill has `entrypoint` and either condition is false, fail before model calls with the exact message `Skill script execution is not enabled for this run.` If a skill has scripts but no `entrypoint`, never execute them; include them only in `Skill Scripts` context.
    - `runSkillEntrypoint` materializes the loaded skill directory into a fresh temp dir under `os.tmpdir()` using `fs.mkdtemp`, preserving relative paths for `SKILL.md`, `references/`, and `scripts/`. Remove the temp dir in a `finally` block with `fs.rm({ recursive: true, force: true })`.
    - Supported entrypoint commands:
      - `.js`: spawn `process.execPath` with `[entrypointAbsolutePath]`.
      - `.sh`: spawn `process.env.BASH_BIN ?? "bash"` with `[entrypointAbsolutePath]`.
      - `.py`: spawn `process.env.PYTHON_BIN ?? "python"` with `[entrypointAbsolutePath]`.
-     Reject any other extension at load time.
+       Reject any other extension at load time.
    - Spawn with `cwd` set to the temp skill directory and an explicit stripped environment: `{ PATH: process.env.PATH ?? "", PYTHONIOENCODING: "utf-8" }`. Do not pass `DATABASE_URL`, model keys, Tavily keys, encryption keys, cookies, or arbitrary `process.env` through.
    - Write this JSON to stdin:
      ```json
@@ -163,13 +180,19 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
 4. Make skill chains validate and execute discovered skills.
    - In `src/server/skill-chains/types.ts`, replace `EXECUTABLE_CHAIN_SKILL_IDS` and `z.enum(EXECUTABLE_CHAIN_SKILL_IDS)` with a string schema that validates syntax only:
      ```ts
-     export const skillIdSchema = z.string().regex(/^(core|workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
+     export const skillIdSchema = z
+       .string()
+       .regex(/^(core|workspace|server)\.[a-z0-9]+(?:-[a-z0-9]+)*$/);
      ```
      Keep `CHAIN_AUTHORING_SKILL_ID = "core.chain-builder"`.
    - Keep output-path template validation unchanged: templates must still render under `chains/`, reject traversal, reject drive segments, and allow only `{{runId}}`, `{{stepId}}`, and `{{stepIndex}}`.
    - In `src/server/skill-chains/runner.ts`, add a preflight after manifest load and before `precheckMissing`/state file creation:
      ```ts
-     async function validateManifestSkills(input: { userId: string; workspaceId: string; manifest: SkillChainManifest }): Promise<void>
+     async function validateManifestSkills(input: {
+       userId: string;
+       workspaceId: string;
+       manifest: SkillChainManifest;
+     }): Promise<void>;
      ```
      It must call the registry skill list/resolver and reject any step whose `skillId` is unknown or whose resolved summary has `chainRunnable === false`. Error string: `Skill chain step <step.id> references unavailable skill <step.skillId>.`
    - Extend `RunSkillChainInput` with `allowScripts?: boolean`. `defaultExecuteStep` must pass `allowScripts` through to `runSkill`; route and CLI callers must provide the value.
@@ -199,7 +222,7 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
      - a `<select name="skillId">` containing all skills; option value is `skill.id`, label is `${skill.id} — ${skill.description}`;
      - `prompt`, `model`, optional `outputPath`, and `allowScripts` checkbox fields;
      - submit path `/api/workspaces/${workspaceId}/skills/${encodeURIComponent(skillId)}`.
-     Keep the existing generic agent-run form intact.
+       Keep the existing generic agent-run form intact.
    - Update `scripts/run-skill-chain.ts` to accept `--allow-scripts`; store it as boolean in `ParsedArgs`; reject duplicate value arguments; pass it to `runSkillChain`; show `Scripts: enabled` in `--dry-run` output when set.
    - Do not add `--allow-scripts` to `scripts/create-skill-chain.ts`; `core.chain-builder` has no entrypoint and must remain model-only.
 
@@ -252,24 +275,30 @@ The current harness exposes skills through a hardcoded TypeScript registry in `s
 Run from `C:/Users/joesa/Code/browser-agent-harness` after implementation:
 
 1. Dependency and generated client checks:
+
    ```bash
    npm install
    npm run prisma:generate
    ```
+
    Expected: `yaml` is installed in `package-lock.json`; Prisma client generation still succeeds because `schema.prisma` is unchanged.
 
 2. Targeted unit/integration tests for new behavior:
+
    ```bash
    npm run test -- src/server/skills src/server/skill-chains src/app/api/workspaces/[workspaceId]/skills src/app/api/workspaces/[workspaceId]/skill-chains
    ```
+
    Expected: tests cover directory discovery, server/workspace skill IDs, script entrypoint gating/execution, dynamic chain validation, route parsing, and builder prompt skill listing.
 
 3. Full project checks:
+
    ```bash
    npm run lint
    npm run test
    npm run build
    ```
+
    Expected: no lint/type/build regressions; existing core skills and skill-chain CLI tests remain green.
 
 4. Manual browser/API smoke test for the new behavior:
@@ -284,11 +313,13 @@ Run from `C:/Users/joesa/Code/browser-agent-harness` after implementation:
        chainRunnable: true
        entrypoint: scripts/echo.js
        ---
+
        Return the script stdout and cite the schema reference title.
        ```
      - `skills/my-skill/references/schema.md`:
        ```md
        # Test Schema
+
        The expected field is customerName.
        ```
      - `skills/my-skill/scripts/echo.js`:

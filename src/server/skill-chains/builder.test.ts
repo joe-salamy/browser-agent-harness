@@ -81,7 +81,9 @@ describe("chain builder prompt construction", () => {
     expect(prompt).toContain(
       "- server.research-synthesis: Synthesizes supported workspace text files into a sourced Markdown summary.",
     );
-    expect(prompt).toContain("- workspace.my-skill: Runs a workspace-authored skill.");
+    expect(prompt).toContain(
+      "- workspace.my-skill: Runs a workspace-authored skill.",
+    );
     expect(prompt).toContain("Do not include server.chain-builder as a step.");
   });
 });
@@ -101,7 +103,8 @@ describe("chain builder manifest parsing helpers", () => {
     error.cause = [
       {
         path: ["steps", 0, "skillId"],
-        message: "Skill server.chain-builder is not in allowed executable skill IDs.",
+        message:
+          "Skill server.chain-builder is not in allowed executable skill IDs.",
       },
     ];
 

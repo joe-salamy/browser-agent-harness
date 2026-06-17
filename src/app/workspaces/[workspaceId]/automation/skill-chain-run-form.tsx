@@ -143,11 +143,14 @@ export function SkillChainRunForm({
 
     setPendingAction(dryRun ? "preview" : mode === "resume" ? "resume" : "run");
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/skill-chains`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/skill-chains`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
       const responseBody = await readResponseJson(response);
       if (!response.ok) {
         setError(bodyError(responseBody) ?? "Skill chain run failed.");
@@ -183,9 +186,7 @@ export function SkillChainRunForm({
           event.preventDefault();
           const submitter = (event.nativeEvent as SubmitEvent)
             .submitter as HTMLButtonElement | null;
-          startTransition(
-            () => void submit(submitter?.value === "preview"),
-          );
+          startTransition(() => void submit(submitter?.value === "preview"));
         }}
       >
         <fieldset className="grid two">
@@ -245,7 +246,9 @@ export function SkillChainRunForm({
                   rows={8}
                   required={mode === "new"}
                   value={manifestJson}
-                  onChange={(event) => setManifestJson(event.currentTarget.value)}
+                  onChange={(event) =>
+                    setManifestJson(event.currentTarget.value)
+                  }
                 />
               </label>
               <label>
@@ -285,7 +288,9 @@ export function SkillChainRunForm({
                 className="input"
                 required={mode === "new"}
                 value={manifestPath}
-                onChange={(event) => onManifestPathChange(event.currentTarget.value)}
+                onChange={(event) =>
+                  onManifestPathChange(event.currentTarget.value)
+                }
                 placeholder="chains/manifests/my-chain.json"
               />
             </label>
@@ -307,7 +312,9 @@ export function SkillChainRunForm({
                 className="input"
                 required={mode === "new"}
                 value={manifestFileId}
-                onChange={(event) => setManifestFileId(event.currentTarget.value)}
+                onChange={(event) =>
+                  setManifestFileId(event.currentTarget.value)
+                }
               >
                 <option value="">Select a workspace file</option>
                 {files.map((file) => (
@@ -382,7 +389,9 @@ export function SkillChainRunForm({
           <input
             type="checkbox"
             checked={allowScripts}
-            onChange={(event) => onAllowScriptsChange(event.currentTarget.checked)}
+            onChange={(event) =>
+              onAllowScriptsChange(event.currentTarget.checked)
+            }
           />
           Allow scripts
         </label>

@@ -31,7 +31,6 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
-
 describe("ManifestBuilderForm", () => {
   it("previews manifest creation without dispatching workspace updates", async () => {
     const user = userEvent.setup();

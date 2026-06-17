@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   getWorkspaceFileByPath: vi.fn(),
   isCoreReadableText: vi.fn(),
   listWorkspaceFiles: vi.fn(),
-  normalizeWorkspacePath: vi.fn((inputPath: string) => inputPath.replaceAll("\\", "/")),
+  normalizeWorkspacePath: vi.fn((inputPath: string) =>
+    inputPath.replaceAll("\\", "/"),
+  ),
   readWorkspaceTextFileCapped: vi.fn(),
 }));
 
@@ -244,7 +246,9 @@ describe("directory skill loading", () => {
 
   it("does not load server skills through symlink escapes", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "skills-root-"));
-    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), "skills-outside-"));
+    const outsideRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "skills-outside-"),
+    );
     try {
       process.env.BROWSER_AGENT_SKILL_ROOTS = tempRoot;
       await fs.mkdir(path.join(outsideRoot, "my-skill"), { recursive: true });

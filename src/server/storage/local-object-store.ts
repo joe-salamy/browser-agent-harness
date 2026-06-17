@@ -50,12 +50,7 @@ export class LocalObjectStore implements ObjectStore {
     try {
       const length = input.endInclusive - input.start + 1;
       const buffer = Buffer.alloc(length);
-      const { bytesRead } = await file.read(
-        buffer,
-        0,
-        length,
-        input.start,
-      );
+      const { bytesRead } = await file.read(buffer, 0, length, input.start);
       return buffer.subarray(0, bytesRead);
     } finally {
       await file.close();

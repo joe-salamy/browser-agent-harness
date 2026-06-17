@@ -40,7 +40,10 @@ export type BuildSkillChainManifestResult = AgentRunResult & {
   manifestPath?: string;
 };
 
-function compactSkill(skill: SkillSummary): { id: string; description: string } {
+function compactSkill(skill: SkillSummary): {
+  id: string;
+  description: string;
+} {
   return { id: skill.id, description: skill.description };
 }
 
@@ -112,7 +115,10 @@ function assertManifestUsesAvailableSkills(input: {
             message: `Skill ${step.skillId} is not in allowed executable skill IDs.`,
           },
     )
-    .filter((issue): issue is { path: Array<string | number>; message: string } => issue !== null);
+    .filter(
+      (issue): issue is { path: Array<string | number>; message: string } =>
+        issue !== null,
+    );
   if (issues.length === 0) return;
   const error = new Error("Invalid skill chain manifest.") as Error & {
     cause?: unknown;
@@ -176,7 +182,9 @@ function buildRepairMessages(input: {
           validationSummary: input.validationSummary,
           authoringSkillId: CHAIN_AUTHORING_SKILL_ID,
           availableSkills: input.availableSkills.map(compactSkill),
-          allowedExecutableSkillIds: input.availableSkills.map((skill) => skill.id),
+          allowedExecutableSkillIds: input.availableSkills.map(
+            (skill) => skill.id,
+          ),
           chainDescription: input.prompt,
           workspaceInstructions: input.workspaceInstructions || null,
           files: input.files,
@@ -253,10 +261,12 @@ export async function buildSkillChainManifest(
   });
 
   try {
-    const availableSkills = (await listAvailableSkills({
-      userId: input.userId,
-      workspaceId: input.workspaceId,
-    })).filter((skill) => skill.chainRunnable);
+    const availableSkills = (
+      await listAvailableSkills({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      })
+    ).filter((skill) => skill.chainRunnable);
     const availableSkillIds = new Set(availableSkills.map((skill) => skill.id));
     const workspaceFiles = await listWorkspaceFiles(
       input.userId,

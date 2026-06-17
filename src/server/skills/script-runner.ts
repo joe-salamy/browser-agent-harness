@@ -34,14 +34,20 @@ function appendCappedOutput(current: string, chunk: string): string {
   return `${current}${chunk.slice(0, Math.max(0, remaining))}${TRUNCATED_MARKER}`;
 }
 
-function commandForEntrypoint(entrypoint: string): { command: string; args: string[] } {
+function commandForEntrypoint(entrypoint: string): {
+  command: string;
+  args: string[];
+} {
   switch (path.extname(entrypoint)) {
     case ".js":
       return { command: process.execPath, args: [entrypoint] };
     case ".sh":
       return { command: process.env.BASH_BIN ?? "bash", args: [entrypoint] };
     case ".py":
-      return { command: process.env.PYTHON_BIN ?? "python", args: [entrypoint] };
+      return {
+        command: process.env.PYTHON_BIN ?? "python",
+        args: [entrypoint],
+      };
     default:
       throw new Error("Unsupported skill entrypoint extension.");
   }

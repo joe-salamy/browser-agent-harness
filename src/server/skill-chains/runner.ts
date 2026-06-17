@@ -1,7 +1,10 @@
 import crypto from "crypto";
 import { WorkspaceRole } from "@prisma/client";
 import { writeAuditLog } from "@/server/audit/log";
-import { listAvailableSkills, runAgentWithSkills } from "@/server/skills/registry";
+import {
+  listAvailableSkills,
+  runAgentWithSkills,
+} from "@/server/skills/registry";
 import { assertWorkspaceAccess } from "@/server/workspaces/access";
 import {
   createWorkspaceFile,

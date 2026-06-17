@@ -132,7 +132,9 @@ describe("chain builder dynamic skill repair", () => {
 
     expect(result.status).toBe("SUCCEEDED");
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(mocks.generateText.mock.calls[1][0].messages)).toContain(
+    expect(
+      JSON.stringify(mocks.generateText.mock.calls[1][0].messages),
+    ).toContain(
       "Skill workspace.missing is not in allowed executable skill IDs.",
     );
     const persistedManifest = JSON.parse(

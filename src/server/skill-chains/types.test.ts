@@ -40,10 +40,9 @@ describe("skill chain manifest validation", () => {
       ],
     };
 
-    expect(parseSkillChainManifest(manifest).steps.map((step) => step.skillId)).toEqual([
-      "workspace.my-skill",
-      "server.other-skill",
-    ]);
+    expect(
+      parseSkillChainManifest(manifest).steps.map((step) => step.skillId),
+    ).toEqual(["workspace.my-skill", "server.other-skill"]);
   });
 
   it("rejects syntactically invalid skill ids", () => {

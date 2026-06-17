@@ -65,10 +65,9 @@ describe("SkillChainResultPanel", () => {
 
     expect(screen.getByText("run-1")).toBeInTheDocument();
     expect(screen.getByText("chains/run/chain-state.json")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "chains/run/summary.md" })).toHaveAttribute(
-      "href",
-      "/workspaces/workspace-1?fileId=file-1",
-    );
+    expect(
+      screen.getByRole("link", { name: "chains/run/summary.md" }),
+    ).toHaveAttribute("href", "/workspaces/workspace-1?fileId=file-1");
     expect(screen.getByText("Needs a better input.")).toHaveClass("error-text");
 
     await user.click(screen.getByRole("button", { name: "Resume this chain" }));

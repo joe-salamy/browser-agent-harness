@@ -26,7 +26,10 @@ export function optionalTrimmedFormDataString(
   return trimmed || undefined;
 }
 
-export function formDataStringList(formData: FormData, field: string): string[] {
+export function formDataStringList(
+  formData: FormData,
+  field: string,
+): string[] {
   const values = formData.getAll(field);
   const strings: string[] = [];
   for (const value of values) {

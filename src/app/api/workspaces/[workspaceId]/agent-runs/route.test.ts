@@ -111,7 +111,9 @@ describe("agent runs route", () => {
     const promptResponse = await POST(formRequest(promptFormData), context);
 
     expect(promptResponse.status).toBe(400);
-    await expect(promptResponse.json()).resolves.toEqual({ error: "Run failed." });
+    await expect(promptResponse.json()).resolves.toEqual({
+      error: "Run failed.",
+    });
 
     const skillFormData = new FormData();
     skillFormData.set("prompt", "Use skills.");
@@ -120,7 +122,9 @@ describe("agent runs route", () => {
     const skillResponse = await POST(formRequest(skillFormData), context);
 
     expect(skillResponse.status).toBe(400);
-    await expect(skillResponse.json()).resolves.toEqual({ error: "Run failed." });
+    await expect(skillResponse.json()).resolves.toEqual({
+      error: "Run failed.",
+    });
     expect(mocks.runAgentWithSkills).not.toHaveBeenCalled();
   });
 

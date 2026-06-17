@@ -11,10 +11,11 @@ export default async function AutomationPage({ params }: Props) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/sign-in");
   const { workspaceId } = await params;
-  const { workspace, files, skills, canEdit } = await getWorkspaceAutomationData({
-    userId,
-    workspaceId,
-  });
+  const { workspace, files, skills, canEdit } =
+    await getWorkspaceAutomationData({
+      userId,
+      workspaceId,
+    });
 
   return (
     <main className="container page">

@@ -45,9 +45,7 @@ export default async function WorkspacePage({ params, searchParams }: Props) {
           <Link href={`/workspaces/${workspaceId}/settings/mcp`}>
             MCP settings
           </Link>
-          <Link href={`/workspaces/${workspaceId}/automation`}>
-            Automation
-          </Link>
+          <Link href={`/workspaces/${workspaceId}/automation`}>Automation</Link>
           <a
             className="btn secondary"
             href={`/api/workspaces/${workspaceId}/export`}

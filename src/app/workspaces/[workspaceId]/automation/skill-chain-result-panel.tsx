@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  BuildManifestResult,
-  SkillChainUiResult,
-} from "./types";
+import type { BuildManifestResult, SkillChainUiResult } from "./types";
 
 type ResultPanelProps = {
   title: string;
@@ -44,7 +41,10 @@ function outputLink(
 ) {
   if (!outputFileId) return null;
   return (
-    <a className="badge" href={`/workspaces/${workspaceId}?fileId=${outputFileId}`}>
+    <a
+      className="badge"
+      href={`/workspaces/${workspaceId}?fileId=${outputFileId}`}
+    >
       {label || "Open output file"}
     </a>
   );
@@ -136,11 +136,17 @@ export function SkillChainResultPanel({
               const stepWithMessage = step as StepWithMessage;
               return (
                 <tr key={step.id}>
-                  <td>{index + 1}. {step.id}</td>
+                  <td>
+                    {index + 1}. {step.id}
+                  </td>
                   <td>{step.skillId}</td>
                   <td>{step.status}</td>
                   <td>
-                    {outputLink(workspaceId, step.outputFileId, step.outputPath)}
+                    {outputLink(
+                      workspaceId,
+                      step.outputFileId,
+                      step.outputPath,
+                    )}
                   </td>
                   <td>{stepWithMessage.message ?? step.errorMessage ?? ""}</td>
                 </tr>

@@ -30,9 +30,7 @@ function countManifestSources(input: SkillChainRouteModeInput): number {
   );
 }
 
-function validateSkillChainModeForRoute(
-  input: SkillChainRouteModeInput,
-): void {
+function validateSkillChainModeForRoute(input: SkillChainRouteModeInput): void {
   const manifestSources = countManifestSources(input);
   const inputSources = input.initialInput ? 1 : 0;
 

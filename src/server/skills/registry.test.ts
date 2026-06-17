@@ -105,7 +105,10 @@ describe("skill registry authorization and dispatch", () => {
   });
 
   it("runs without skills when skillIds is omitted", async () => {
-    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-1", status: "SUCCEEDED" });
+    mocks.runtimeRun.mockResolvedValueOnce({
+      runId: "run-1",
+      status: "SUCCEEDED",
+    });
 
     await expect(
       runAgentWithSkills({
@@ -130,7 +133,10 @@ describe("skill registry authorization and dispatch", () => {
   });
 
   it("runs without skills when skillIds is empty", async () => {
-    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-2", status: "SUCCEEDED" });
+    mocks.runtimeRun.mockResolvedValueOnce({
+      runId: "run-2",
+      status: "SUCCEEDED",
+    });
 
     await runAgentWithSkills({
       userId: "user-1",
@@ -183,7 +189,10 @@ describe("skill registry authorization and dispatch", () => {
     mocks.loadDirectorySkill
       .mockResolvedValueOnce(directorySkill)
       .mockResolvedValueOnce(serverSkill);
-    mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-3", status: "SUCCEEDED" });
+    mocks.runtimeRun.mockResolvedValueOnce({
+      runId: "run-3",
+      status: "SUCCEEDED",
+    });
 
     await expect(
       runAgentWithSkills({
@@ -347,7 +356,10 @@ describe("skill registry authorization and dispatch", () => {
         timedOut: false,
         durationMs: 12,
       });
-      mocks.runtimeRun.mockResolvedValueOnce({ runId: "run-4", status: "SUCCEEDED" });
+      mocks.runtimeRun.mockResolvedValueOnce({
+        runId: "run-4",
+        status: "SUCCEEDED",
+      });
 
       await expect(
         runAgentWithSkills({

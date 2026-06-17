@@ -29,7 +29,9 @@ describe("UploadForm", () => {
     render(<UploadForm workspaceId="workspace-1" />);
 
     const fileInput = screen.getByLabelText("File") as HTMLInputElement;
-    const pathInput = screen.getByLabelText("Workspace path") as HTMLInputElement;
+    const pathInput = screen.getByLabelText(
+      "Workspace path",
+    ) as HTMLInputElement;
     const file = new File(["hello"], "notes.md", { type: "text/markdown" });
 
     await user.upload(fileInput, file);

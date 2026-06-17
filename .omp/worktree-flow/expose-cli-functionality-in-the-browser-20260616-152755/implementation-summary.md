@@ -1,14 +1,17 @@
 # Implementation Summary
 
 ## Plan
+
 - `.omp/worktree-flow/expose-cli-functionality-in-the-browser/plan.md`
 
 ## Worktree and branch
+
 - Worktree: `C:/Users/joesa/Code/browser-agent-harness-expose-cli-functionality-in-the-browser`
 - Branch: `feature/expose-cli-functionality-in-the-browser`
 - Commit: `340ba81d9526314583695ede755db8785baf7cc3`
 
 ## Changed files committed
+
 - `.omp/skills/browser-gui-ux-designer/SKILL.md`
 - `AGENTS.md`
 - `README.md`
@@ -31,6 +34,7 @@
 - `tests/e2e/automation.spec.ts`
 
 ## Behavior changes
+
 - Added a repo-local `.omp` skill, `browser-gui-ux-designer`, for browser GUI workflow/CLI parity UX review.
 - Added the root `AGENTS.md` rule requiring CLI and browser GUI parity for future user-facing CLI command/flag changes.
 - Added `POST /api/workspaces/[workspaceId]/skill-chain-manifests` for authenticated EDITOR users to create or dry-run skill-chain manifest generation from browser JSON payloads.
@@ -55,6 +59,7 @@
 - Added Playwright dry-run E2E coverage for the Automation page flow.
 
 ## Tests and checks run
+
 - Passed: `npm run test -- "src/app/api/workspaces/[workspaceId]/skill-chain-manifests/route.test.ts" "src/app/api/workspaces/[workspaceId]/skill-chains/route.test.ts" "src/app/workspaces/[workspaceId]/automation/manifest-builder-form.test.tsx" "src/app/workspaces/[workspaceId]/automation/skill-chain-run-form.test.tsx" "src/app/workspaces/[workspaceId]/automation/skill-chain-result-panel.test.tsx"`
   - Result: 5 test files passed, 29 tests passed.
 - Passed: `npm run typecheck`
@@ -65,9 +70,11 @@
   - Local prerequisite issue: no `.env.local` was present in this worktree, so the seeded demo auth/database environment required by the plan was not available.
 
 ## Skipped checks
+
 - Manual real-run smoke check was not run because no `OPENROUTER_API_KEY`, workspace model credential, or seeded local app/database/auth environment was available in this worktree.
 
 ## Implementation decisions and tradeoffs
+
 - Kept API validation inside the route handlers so public POST endpoints reject malformed payloads before service calls.
 - Used the existing `workspaceRouteErrorResponse` fallback messages required by the plan instead of exposing validation exception text.
 - Kept Automation data loading in `getWorkspaceAutomationData` rather than reusing `getWorkspaceOverview`, avoiding audit logs and selected file text on the Automation page.
@@ -76,10 +83,12 @@
 - Did not add MCP invocation UI because the approved plan explicitly excluded it.
 
 ## Assumptions, blockers, and residual risks
+
 - Assumes the existing seeded demo E2E environment signs in `demo@example.com` / `demo-password`; this could not be verified locally without `.env.local`.
 - Assumes workspace file selection may include non-core-readable files because the plan required displaying all files with `readableByCore`; the server remains authoritative for actual manifest loading errors.
 - Residual risk: the Playwright Automation test was added but not observed passing end-to-end in this worktree due the missing local auth/database prerequisite.
 
 ## Workflow artifacts intentionally uncommitted
+
 - `.omp/handoff/implementation-summary.md`
 - `.omp/worktree-flow/expose-cli-functionality-in-the-browser/`

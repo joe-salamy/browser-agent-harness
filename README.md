@@ -29,8 +29,8 @@ A browser-native foundation for building agent-powered knowledge-work products w
    | `OPENROUTER_ALLOWED_MODELS` | Optional | Comma-separated model ids allowed in addition to the default OpenRouter model.                |
    | `BROWSER_AGENT_SKILL_ROOTS` | Optional | Extra server-installed skill roots, split by the OS path delimiter.                           |
    | `SKILL_SCRIPTS_ENABLED`     | Optional | Set to `true` to permit per-run directory skill entrypoint execution.                         |
-   | `BASH_BIN`                  | Optional | Shell executable used for `.sh` skill entrypoints; defaults to `bash`.                       |
-   | `PYTHON_BIN`                | Optional | Python executable used for `.py` skill entrypoints; defaults to `python`.                    |
+   | `BASH_BIN`                  | Optional | Shell executable used for `.sh` skill entrypoints; defaults to `bash`.                        |
+   | `PYTHON_BIN`                | Optional | Python executable used for `.py` skill entrypoints; defaults to `python`.                     |
    | `S3_ENDPOINT`               | Optional | Switches workspace file storage from local storage to S3-compatible storage at this endpoint. |
    | `S3_BUCKET`                 | Optional | S3 bucket name; defaults to `workspace-files`.                                                |
    | `S3_REGION`                 | Optional | S3 region; defaults to `us-east-1`.                                                           |
@@ -70,10 +70,10 @@ Skills are reusable instructions, references, and optional scripts that a run ma
 
 Skill sources:
 
-| Source | ID format | Where it comes from |
-| ------ | --------- | ------------------- |
-| Workspace | `workspace.<name>` | Workspace files under `skills/<name>/SKILL.md`. |
-| Server | `server.<name>` | Server directories under `skills/`, `.agents/skills/`, or any absolute root in `BROWSER_AGENT_SKILL_ROOTS`. |
+| Source    | ID format          | Where it comes from                                                                                         |
+| --------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Workspace | `workspace.<name>` | Workspace files under `skills/<name>/SKILL.md`.                                                             |
+| Server    | `server.<name>`    | Server directories under `skills/`, `.agents/skills/`, or any absolute root in `BROWSER_AGENT_SKILL_ROOTS`. |
 
 Built-in harness skills are installed as server directory skills under `skills/<name>/SKILL.md`, so they use the same loading path as user-installed server skills.
 
@@ -215,14 +215,14 @@ Input sources:
 
 Common options:
 
-| Option                    | Required                                      | Meaning                                                          |
-| ------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
-| `--user-email <email>`    | Yes                                           | User that owns or can edit the target workspace.                 |
-| `--workspace-id <id>`     | One of `--workspace-id` or `--workspace-name` | Target workspace by id.                                          |
-| `--workspace-name <name>` | One of `--workspace-id` or `--workspace-name` | Latest matching workspace for the user.                          |
-| `--model <model>`         | No                                            | Override the default model for the run.                          |
-| `--allow-scripts`         | No                                            | Permit skill entrypoints when `SKILL_SCRIPTS_ENABLED=true`.      |
-| `--dry-run`               | No                                            | Validate inputs and print status without running the chain.      |
+| Option                    | Required                                      | Meaning                                                     |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `--user-email <email>`    | Yes                                           | User that owns or can edit the target workspace.            |
+| `--workspace-id <id>`     | One of `--workspace-id` or `--workspace-name` | Target workspace by id.                                     |
+| `--workspace-name <name>` | One of `--workspace-id` or `--workspace-name` | Latest matching workspace for the user.                     |
+| `--model <model>`         | No                                            | Override the default model for the run.                     |
+| `--allow-scripts`         | No                                            | Permit skill entrypoints when `SKILL_SCRIPTS_ENABLED=true`. |
+| `--dry-run`               | No                                            | Validate inputs and print status without running the chain. |
 
 When a run starts, the runner validates the manifest, copies the manifest and initial input into the workspace, creates `chain-state.json`, runs steps in order, updates state after each transition, and writes audit events for chain start, step start, step success or failure, and chain success or failure.
 

@@ -32,8 +32,7 @@ export function AutomationClient({
     null,
   );
   const [mode, setMode] = useState<RunMode>("new");
-  const [manifestSource, setManifestSource] =
-    useState<ManifestSource>("json");
+  const [manifestSource, setManifestSource] = useState<ManifestSource>("json");
   const [manifestPath, setManifestPath] = useState("");
   const [initialInput, setInitialInput] = useState("");
   const [resumeStatePath, setResumeStatePath] = useState("");

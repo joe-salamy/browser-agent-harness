@@ -1,5 +1,8 @@
 import { WorkspaceRole } from "@prisma/client";
-import type { AgentRunResult, AgentSupplementalContext } from "@/server/agents/runtime";
+import type {
+  AgentRunResult,
+  AgentSupplementalContext,
+} from "@/server/agents/runtime";
 import { minimalAgentRuntime } from "@/server/agents/minimal-runtime";
 import { writeAuditLog } from "@/server/audit/log";
 import { runSkillEntrypoint } from "@/server/skills/script-runner";
@@ -161,7 +164,10 @@ async function buildSupplementalContexts(input: {
     }
 
     if (!skill.entrypoint) continue;
-    if (input.allowScripts !== true || process.env.SKILL_SCRIPTS_ENABLED !== "true") {
+    if (
+      input.allowScripts !== true ||
+      process.env.SKILL_SCRIPTS_ENABLED !== "true"
+    ) {
       throw new Error("Skill script execution is not enabled for this run.");
     }
     const entrypointAsset = skill.scripts.find(

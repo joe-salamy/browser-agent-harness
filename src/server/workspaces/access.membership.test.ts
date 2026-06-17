@@ -40,11 +40,7 @@ describe("requireWorkspaceMembership", () => {
     });
 
     await expect(
-      requireWorkspaceMembership(
-        "user-1",
-        "workspace-1",
-        WorkspaceRole.VIEWER,
-      ),
+      requireWorkspaceMembership("user-1", "workspace-1", WorkspaceRole.VIEWER),
     ).resolves.toEqual({ workspace, role: WorkspaceRole.EDITOR });
     expect(mocks.workspaceMemberFindUnique).toHaveBeenCalledWith({
       where: {
@@ -61,11 +57,7 @@ describe("requireWorkspaceMembership", () => {
     });
 
     await expect(
-      requireWorkspaceMembership(
-        "user-1",
-        "workspace-1",
-        WorkspaceRole.EDITOR,
-      ),
+      requireWorkspaceMembership("user-1", "workspace-1", WorkspaceRole.EDITOR),
     ).rejects.toBeInstanceOf(WorkspaceAccessError);
   });
 
@@ -73,11 +65,7 @@ describe("requireWorkspaceMembership", () => {
     mocks.workspaceMemberFindUnique.mockResolvedValue(null);
 
     await expect(
-      requireWorkspaceMembership(
-        "user-1",
-        "workspace-1",
-        WorkspaceRole.VIEWER,
-      ),
+      requireWorkspaceMembership("user-1", "workspace-1", WorkspaceRole.VIEWER),
     ).rejects.toBeInstanceOf(WorkspaceAccessError);
   });
 });

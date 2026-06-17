@@ -28,7 +28,10 @@ type ParsedArgs = {
 function parseArgs(argv: string[]): ParsedArgs {
   const args: ParsedArgs = { dryRun: false, allowScripts: false };
   const valueArgs = new Set<string>();
-  function setValue(field: Exclude<keyof ParsedArgs, "dryRun" | "allowScripts">, value: string): void {
+  function setValue(
+    field: Exclude<keyof ParsedArgs, "dryRun" | "allowScripts">,
+    value: string,
+  ): void {
     if (valueArgs.has(field)) throw new Error(`Duplicate argument --${field}.`);
     valueArgs.add(field);
     args[field] = value;
@@ -41,7 +44,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
     if (arg === "--allow-scripts") {
-      if (args.allowScripts) throw new Error("Duplicate argument --allow-scripts.");
+      if (args.allowScripts)
+        throw new Error("Duplicate argument --allow-scripts.");
       args.allowScripts = true;
       continue;
     }

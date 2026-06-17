@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/auth";
-import { runAgentWithSkills, UnknownSkillError } from "@/server/skills/registry";
+import {
+  runAgentWithSkills,
+  UnknownSkillError,
+} from "@/server/skills/registry";
 import {
   formDataString,
   formDataStringList,

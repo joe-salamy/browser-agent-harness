@@ -19,11 +19,13 @@ export type BuildManifestDryRunResult = {
   goalCharacters: number;
 };
 
-export type BuildManifestResult = BuildManifestDryRunResult | (AgentRunResult & {
-  outputPath?: string;
-  manifestPath?: string;
-  manifest?: SkillChainManifest;
-});
+export type BuildManifestResult =
+  | BuildManifestDryRunResult
+  | (AgentRunResult & {
+      outputPath?: string;
+      manifestPath?: string;
+      manifest?: SkillChainManifest;
+    });
 
 export type SkillChainDryRunResult = {
   status: "DRY_RUN";

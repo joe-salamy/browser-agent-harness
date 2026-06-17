@@ -87,7 +87,9 @@ export function ManifestBuilderForm({
       );
       const responseBody = await responseJson(response);
       if (!response.ok) {
-        setError(bodyError(responseBody) ?? "Skill chain manifest creation failed.");
+        setError(
+          bodyError(responseBody) ?? "Skill chain manifest creation failed.",
+        );
         return;
       }
       onResult(responseBody as BuildManifestResult);

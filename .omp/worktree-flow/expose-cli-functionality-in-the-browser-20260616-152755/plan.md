@@ -1,11 +1,13 @@
 # Expose CLI Functionality in the Browser GUI
 
 ## Context
+
 The repo already has a browser GUI for workspaces, files, single agent runs, model settings, MCP registry settings, audit logs, and exports, but the skill-chain CLI is not fully available through the GUI. `npm run skill-chain:create` is CLI-only, `npm run skill-chain` has a browser API but no browser page, and CLI dry-run behavior is not exposed in any browser route. The intended end state is a workspace-level Automation GUI that exposes every current skill-chain CLI flag/flow, plus a repo-local `.omp` UI/UX skill and an `AGENTS.md` rule that keeps future CLI features GUI-aligned.
 
 ## Approach
 
 ### 1. Add the repo-local UI/UX skill under `.omp/skills`
+
 Independent of the GUI/API changes.
 
 - Create `.omp/skills/browser-gui-ux-designer/SKILL.md` using the same `.omp` skill shape as `.omp/skills/react-ui-accessibility-reviewer/SKILL.md`: YAML frontmatter with `name`, `description`, `license: MIT`, and nested `metadata`, followed by Markdown sections.
@@ -41,6 +43,7 @@ Independent of the GUI/API changes.
     - `https://www.w3.org/WAI/ARIA/apg/` — prefer semantic HTML; use ARIA patterns only when native elements are insufficient.
 
 ### 2. Add a persistent CLI/GUI parity rule to `AGENTS.md`
+
 Independent of the GUI/API changes.
 
 - Append this exact bullet to the existing root `AGENTS.md` list:
@@ -52,6 +55,7 @@ Independent of the GUI/API changes.
 - Do not edit `docs/scratchpad.md`.
 
 ### 3. Add browser API parity for `npm run skill-chain:create`
+
 Depends on existing `buildSkillChainManifest` in `src/server/skill-chains/builder.ts` and request helpers in `src/server/request-parsing.ts`.
 
 - Create `src/app/api/workspaces/[workspaceId]/skill-chain-manifests/route.ts` with `POST` only.
@@ -75,10 +79,11 @@ Depends on existing `buildSkillChainManifest` in `src/server/skill-chains/builde
        prompt,
        model,
        outputPath,
-     })
+     });
      ```
 
      and return its result JSON unchanged.
+
   8. Catch errors with `workspaceRouteErrorResponse(error, "Skill chain manifest creation failed.", 400)`.
 
 - Browser equivalents of create CLI flags:
@@ -98,6 +103,7 @@ Depends on existing `buildSkillChainManifest` in `src/server/skill-chains/builde
   - Real create trims fields and calls `buildSkillChainManifest` with `userId`, `workspaceId`, `prompt`, optional `model`, and optional `outputPath`, then returns `runId`, `status`, `outputFileId`, `outputPath`, `manifestPath`, and `manifest` from the mocked builder.
 
 ### 4. Extend the existing skill-chain API for dry-run and stricter manifest parsing
+
 Depends on current route `src/app/api/workspaces/[workspaceId]/skill-chains/route.ts` and `parseSkillChainManifest` from `src/server/skill-chains/types.ts`.
 
 - Modify `src/app/api/workspaces/[workspaceId]/skill-chains/route.ts` instead of creating a second run route.
@@ -105,7 +111,8 @@ Depends on current route `src/app/api/workspaces/[workspaceId]/skill-chains/rout
 - Replace the current cast `manifest: body.manifest as SkillChainManifest | undefined` with explicit parsing:
 
   ```ts
-  const manifest = "manifest" in body ? parseSkillChainManifest(body.manifest) : undefined;
+  const manifest =
+    "manifest" in body ? parseSkillChainManifest(body.manifest) : undefined;
   ```
 
 - Parse `dryRun` with `optionalJsonBoolean(body, "dryRun") ?? false`.
@@ -128,6 +135,7 @@ Depends on current route `src/app/api/workspaces/[workspaceId]/skill-chains/rout
   ```
 
   Do not call `runSkillChain`; do not load workspace manifest paths/file IDs; this matches CLI dry-run behavior, which validates mode and parses local manifest JSON when supplied but does not execute the chain.
+
 - If `dryRun` is false, call `validateSkillChainModeForRoute` before `runSkillChain`, then call:
 
   ```ts
@@ -141,7 +149,7 @@ Depends on current route `src/app/api/workspaces/[workspaceId]/skill-chains/rout
     model,
     resumeStatePath,
     allowScripts,
-  })
+  });
   ```
 
 - Keep catch fallback `workspaceRouteErrorResponse(error, "Skill chain run failed.", 400)`.
@@ -154,6 +162,7 @@ Depends on current route `src/app/api/workspaces/[workspaceId]/skill-chains/rout
   - Add mode-validation tests for new run missing manifest source, new run missing input, resume with initial input, and resume with two manifest sources; each returns 400 fallback and does not call `runSkillChain`.
 
 ### 5. Add a workspace-level Automation page and navigation
+
 Depends on API steps 3 and 4 for full behavior; can be developed against mocked fetches in component tests first.
 
 - Add a nav link in `src/app/workspaces/[workspaceId]/page.tsx` inside the existing header nav card, after MCP settings and before export links:
@@ -218,11 +227,13 @@ Depends on API steps 3 and 4 for full behavior; can be developed against mocked 
     goalCharacters: number;
   };
 
-  export type BuildManifestResult = BuildManifestDryRunResult | (AgentRunResult & {
-    outputPath?: string;
-    manifestPath?: string;
-    manifest?: SkillChainManifest;
-  });
+  export type BuildManifestResult =
+    | BuildManifestDryRunResult
+    | (AgentRunResult & {
+        outputPath?: string;
+        manifestPath?: string;
+        manifest?: SkillChainManifest;
+      });
 
   export type SkillChainDryRunResult = {
     status: "DRY_RUN";
@@ -238,6 +249,7 @@ Depends on API steps 3 and 4 for full behavior; can be developed against mocked 
   Import `SkillSummary`, `SkillChainManifest`, `SkillChainRunResult`, and `AgentRunResult` from existing server/type modules only as `import type` in client files.
 
 ### 6. Implement the Create Manifest GUI
+
 Depends on the new `skill-chain-manifests` API.
 
 - `manifest-builder-form.tsx` controls:
@@ -259,6 +271,7 @@ Depends on the new `skill-chain-manifests` API.
   - Dispatch `workspace-updated` after real create success, not after dry-run.
 
 ### 7. Implement the Run/Resume Skill Chain GUI
+
 Depends on the existing/extended `skill-chains` API.
 
 - `skill-chain-run-form.tsx` must expose every `npm run skill-chain` flag as a browser equivalent:
@@ -282,6 +295,7 @@ Depends on the existing/extended `skill-chains` API.
 - On failure, show the API `{ error }` in `role="alert"` and keep user-entered values intact.
 
 ### 8. Render chain status, artifacts, resume handoff, and skills clearly
+
 Depends on the Run/Resume GUI.
 
 - `skill-chain-result-panel.tsx` must support three result shapes:
@@ -301,6 +315,7 @@ Depends on the Run/Resume GUI.
 - Do not add MCP invocation in this change; there is no current CLI command for MCP invocation. Leave the existing MCP registry/settings UI unchanged.
 
 ### 9. Update README documentation after the GUI works
+
 Depends on functional GUI/API behavior.
 
 - In `README.md`, under `## Skill chains` and before `## Available npm scripts`, add a short `### Browser Automation GUI` subsection.

@@ -9,6 +9,7 @@ Audit complete.
 Prior implementation audited: workspace DAL refactor, request parser consolidation, capped agent file context reads, storage presign removal, skill-chain CLI helper extraction, UI style/upload refresh cleanup, package metadata cleanup, and tests/docs updates.
 
 Skills loaded:
+
 - `audit-worktree`
 - `nextjs-app-router-reviewer`
 - `typescript-strict-maintainer`
@@ -17,20 +18,24 @@ Skills loaded:
 - `agent-mcp-safety-reviewer`
 
 Confirmed issue fixed:
+
 - `src/server/agents/minimal-runtime.ts` incorrectly set `truncatedContext: true` when one readable file exactly filled the 80,000-character cap and no content was omitted.
 - Fixed by tracking readable files and setting global truncation only when a read is truncated or later readable files are skipped.
 - Added regression coverage in `src/server/agents/minimal-runtime.test.ts`.
 
 Files changed by audit:
+
 - `src/server/agents/minimal-runtime.ts`
 - `src/server/agents/minimal-runtime.test.ts`
 
 Verification:
+
 - `npm run test -- src/server/agents/minimal-runtime.test.ts` — passed, 4 tests.
 - `npm run typecheck` — passed.
 - `npm run lint` — passed.
 
 Final status:
+
 - No staged or unstaged tracked files.
 - Untracked workflow artifacts remain: `.omp/handoff/`, `.omp/worktree-flow/...`.
 - Not committed by design.

@@ -5,6 +5,7 @@ Implemented and committed.
 - Workflow artifacts left untracked: `.omp/handoff/`, `.omp/worktree-flow/extensible-workspace-and-server-skills/`
 
 Verification:
+
 - `npm install` passed
 - `npm run prisma:generate` passed
 - `npx tsc --noEmit` passed
@@ -14,4 +15,5 @@ Verification:
 - `npm run build` passed with one non-fatal Turbopack NFT trace warning for `script-runner.ts`
 
 Skipped:
+
 - Manual browser/API smoke test not run; it needs a live signed-in workspace plus model credential/API key.

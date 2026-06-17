@@ -18,6 +18,7 @@ External guidance used for this plan: Next.js data security recommends one data-
 
 2. Move workspace page reads into a narrow server data layer.
    - In `src/server/workspaces/access.ts`, add this exported type and function without changing role semantics:
+
      ```ts
      export type WorkspaceMembershipAccess = {
        workspace: Workspace;
@@ -30,9 +31,11 @@ External guidance used for this plan: Next.js data security recommends one data-
        minimumRole: WorkspaceRole,
      ): Promise<WorkspaceMembershipAccess>;
      ```
+
    - Implement `requireWorkspaceMembership` with the existing `prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } }, include: { workspace: true } })` query and existing `hasRoleAtLeast`; throw `WorkspaceAccessError` on missing membership or insufficient role.
    - Refactor `assertWorkspaceAccess` to call `requireWorkspaceMembership(...)` and return only `.workspace`, preserving its exported signature `Promise<Workspace>` and all existing callsites.
    - Add `src/server/workspaces/queries.ts` for server-only page read models. New exported symbols:
+
      ```ts
      export type WorkspaceListItem = {
        id: string;
@@ -66,6 +69,7 @@ External guidance used for this plan: Next.js data security recommends one data-
        selectedFileId?: string;
      }): Promise<WorkspaceOverview>;
      ```
+
    - `listUserWorkspaces` must use `prisma.workspaceMember.findMany` with `select: { role: true, workspace: { select: { id: true, name: true } } }`, `where: { userId }`, and existing `orderBy: { workspace: { updatedAt: "desc" } }`; return DTOs `{ id, name, role }`, not raw `WorkspaceMember` records.
    - `getWorkspaceOverview` must call `requireWorkspaceMembership(userId, workspaceId, WorkspaceRole.VIEWER)` once, compute `canEdit` with `hasRoleAtLeast(role, WorkspaceRole.EDITOR)`, load `listWorkspaceFiles`, `listAvailableSkills`, and `listAuditLogs`, then derive `selected` using the current selected-file logic from `src/app/workspaces/[workspaceId]/page.tsx`. Preserve unsupported text behavior: `UnsupportedTextFileError` message is shown; other read errors become `"File could not be read."`; unknown `selectedFileId` yields `selected: null`.
    - Keep service-level authorization inside `listWorkspaceFiles`, `listAvailableSkills`, `listAuditLogs`, and `readWorkspaceTextFile`; do not add “trusted” bypasses.
@@ -78,14 +82,32 @@ External guidance used for this plan: Next.js data security recommends one data-
 3. Consolidate request/form parsing at server boundaries.
    - Add `src/server/request-parsing.ts` with these exact exports:
      ```ts
-     export function firstFormDataString(formData: FormData, field: string): string | null;
+     export function firstFormDataString(
+       formData: FormData,
+       field: string,
+     ): string | null;
      export function formDataString(formData: FormData, field: string): string;
-     export function optionalTrimmedFormDataString(formData: FormData, field: string): string | undefined;
-     export function formDataStringList(formData: FormData, field: string): string[];
-     export function optionalFormDataBoolean(formData: FormData, field: string): boolean;
+     export function optionalTrimmedFormDataString(
+       formData: FormData,
+       field: string,
+     ): string | undefined;
+     export function formDataStringList(
+       formData: FormData,
+       field: string,
+     ): string[];
+     export function optionalFormDataBoolean(
+       formData: FormData,
+       field: string,
+     ): boolean;
      export function parseJsonObject(value: unknown): Record<string, unknown>;
-     export function optionalJsonString(record: Record<string, unknown>, field: string): string | undefined;
-     export function optionalJsonBoolean(record: Record<string, unknown>, field: string): boolean | undefined;
+     export function optionalJsonString(
+       record: Record<string, unknown>,
+       field: string,
+     ): string | undefined;
+     export function optionalJsonBoolean(
+       record: Record<string, unknown>,
+       field: string,
+     ): boolean | undefined;
      ```
    - `firstFormDataString` must inspect all values for a field, throw `new Error("Invalid request body.")` if any value is not a string, and return the first string or `null`. This preserves `agent-runs` rejection of File-valued repeated fields.
    - `formDataString` returns `firstFormDataString(...) ?? ""` without trimming; use it for workspace instructions, text content, labels, API keys, IDs, paths, and URLs where existing services perform their own trimming/validation.
@@ -119,6 +141,7 @@ External guidance used for this plan: Next.js data security recommends one data-
 
 6. Reduce duplicated skill-chain CLI plumbing without changing CLI flags or output text.
    - Add `scripts/skill-chain-cli.ts` with these exact exports:
+
      ```ts
      export type UserWorkspaceArgs = {
        workspaceId?: string;
@@ -141,6 +164,7 @@ External guidance used for this plan: Next.js data security recommends one data-
        args: UserWorkspaceArgs,
      ): Promise<ResolvedUserWorkspace>;
      ```
+
    - Move the existing OS-specific `shellQuote` behavior exactly from the two scripts: Windows uses single quotes and doubles embedded single quotes; other platforms uses POSIX single-quote escaping.
    - Move `formatSkillChainCommand` from `scripts/run-skill-chain.ts`; default `flags` to `[]`; output must remain `npm run skill-chain -- ...` with `--name quotedValue` pairs and trailing boolean flags.
    - Move the shared Prisma user/workspace lookup and `assertWorkspaceAccess(..., WorkspaceRole.EDITOR)` into `resolveUserWorkspace`. Preserve exact error messages: `"--user-email is required."`, `"Provide exactly one of --workspace-id or --workspace-name."`, `User not found: ${email}.`, and `"Workspace not found."`.
