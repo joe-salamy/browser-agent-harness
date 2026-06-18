@@ -5,6 +5,10 @@ export type AgentToolCall = {
   error?: string;
 };
 
+export type AgentWorkspaceToolName =
+  | "workspace.read_hashlines"
+  | "workspace.apply_hashline_edits";
+
 export type AgentSupplementalContext = { label: string; content: string };
 
 export type AgentRunRequest = {

@@ -392,6 +392,96 @@ export async function writeWorkspaceTextFile(input: {
   return version;
 }
 
+export async function writeWorkspaceFileBytes(input: {
+  userId: string;
+  workspaceId: string;
+  fileId: string;
+  bytes: Buffer;
+  contentType?: string;
+  createdByRunId?: string;
+}): Promise<WorkspaceFileVersion> {
+  await assertWorkspaceAccess(
+    input.userId,
+    input.workspaceId,
+    WorkspaceRole.EDITOR,
+  );
+  const file = await prisma.workspaceFile.findFirst({
+    where: {
+      id: input.fileId,
+      workspaceId: input.workspaceId,
+      deletedAt: null,
+    },
+    include: {
+      currentVersion: true,
+      versions: { orderBy: { versionNumber: "desc" }, take: 1 },
+    },
+  });
+  if (!file?.currentVersion) throw new Error("File not found.");
+  const contentType = normalizeContentType(
+    input.contentType ?? file.contentType,
+  );
+
+  const versionId = crypto.randomUUID();
+  const versionNumber = (file.versions[0]?.versionNumber ?? 0) + 1;
+  const objectKey = `workspaces/${input.workspaceId}/files/${file.id}/versions/${versionId}`;
+  const sha256 = crypto.createHash("sha256").update(input.bytes).digest("hex");
+  const objectStore = getObjectStore();
+  await objectStore.putObject({
+    key: objectKey,
+    body: input.bytes,
+    contentType,
+  });
+
+  let version: WorkspaceFileVersion;
+  try {
+    version = await prisma.$transaction(async (tx) => {
+      const created = await tx.workspaceFileVersion.create({
+        data: {
+          id: versionId,
+          fileId: file.id,
+          workspaceId: input.workspaceId,
+          versionNumber,
+          objectKey,
+          sha256,
+          sizeBytes: input.bytes.length,
+          contentType,
+          createdById: input.userId,
+          createdByRunId: input.createdByRunId,
+          previousVersionId: file.currentVersionId,
+        },
+      });
+      await tx.workspaceFile.update({
+        where: { id: file.id },
+        data: {
+          currentVersionId: versionId,
+          sizeBytes: input.bytes.length,
+          contentType,
+        },
+      });
+      return created;
+    });
+  } catch (error) {
+    try {
+      await objectStore.deleteObject({ key: objectKey });
+    } catch {
+      // Keep the original database error; the orphan can be reclaimed by storage maintenance.
+    }
+    throw error;
+  }
+
+  await writeAuditLog({
+    workspaceId: input.workspaceId,
+    actorUserId: input.userId,
+    agentRunId: input.createdByRunId,
+    eventType: "file.version.created",
+    targetType: "file",
+    targetId: file.id,
+    summary: `Created version ${versionNumber} for ${file.path}.`,
+    metadata: { path: file.path, versionNumber, sizeBytes: input.bytes.length },
+  });
+  return version;
+}
+
 export async function createWorkspaceExport(
   userId: string,
   workspaceId: string,
