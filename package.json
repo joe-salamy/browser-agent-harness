@@ -13,9 +13,7 @@
     "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "dotenv -e .env.local -- prisma migrate dev",
-    "demo:seed": "dotenv -e .env.local -- prisma migrate dev --name init && dotenv -e .env.local -- prisma db seed",
-    "skill-chain:create": "tsx scripts/create-skill-chain.ts",
-    "skill-chain": "tsx scripts/run-skill-chain.ts"
+    "demo:seed": "dotenv -e .env.local -- prisma migrate dev --name init && dotenv -e .env.local -- prisma db seed"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.2",

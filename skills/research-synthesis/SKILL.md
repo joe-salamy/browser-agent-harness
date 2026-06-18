@@ -1,7 +1,6 @@
 ---
 name: research-synthesis
 description: Synthesizes supported workspace text files into a sourced Markdown summary.
-chainRunnable: true
 ---
 Synthesize the readable workspace files into these sections: Summary, Key Findings, Source Notes, and Recommended Next Steps.
 

@@ -17,7 +17,6 @@ export type SkillSummary = {
   name: string;
   source: SkillSource;
   description: string;
-  chainRunnable: boolean;
   hasEntrypoint: boolean;
   referenceCount: number;
   scriptCount: number;
@@ -62,7 +61,6 @@ const PYTHON_CONTENT_TYPE = "text/x-python";
 type ParsedSkillDocument = {
   name: string;
   description: string;
-  chainRunnable: boolean;
   instructions: string;
   entrypoint?: string;
 };
@@ -128,18 +126,10 @@ function parseSkillDocument(markdown: string): ParsedSkillDocument {
   if (!description || description.length > 1024) {
     throw new Error("Skill description is required.");
   }
-  const rawChainRunnable = frontmatter.chainRunnable;
-  if (
-    rawChainRunnable !== undefined &&
-    typeof rawChainRunnable !== "boolean"
-  ) {
-    throw new Error("Invalid skill chainRunnable.");
-  }
   const instructions = truncateText(match[2] ?? "", MAX_SKILL_INSTRUCTIONS_CHARS).text;
   return {
     name,
     description,
-    chainRunnable: rawChainRunnable ?? true,
     instructions,
     entrypoint: normalizeEntrypoint(frontmatter.entrypoint),
   };
@@ -171,7 +161,6 @@ function summaryFromParsed(
     name: parsed.name,
     source,
     description: parsed.description,
-    chainRunnable: parsed.chainRunnable,
     hasEntrypoint: parsed.entrypoint !== undefined,
     referenceCount,
     scriptCount,
@@ -504,7 +493,6 @@ async function listWorkspaceSkillSummaries(input: {
       name: loaded.name,
       source: loaded.source,
       description: loaded.description,
-      chainRunnable: loaded.chainRunnable,
       hasEntrypoint: loaded.hasEntrypoint,
       referenceCount: loaded.referenceCount,
       scriptCount: loaded.scriptCount,
@@ -526,7 +514,6 @@ async function listServerSkillSummaries(): Promise<SkillSummary[]> {
         name: loaded.name,
         source: loaded.source,
         description: loaded.description,
-        chainRunnable: loaded.chainRunnable,
         hasEntrypoint: loaded.hasEntrypoint,
         referenceCount: loaded.referenceCount,
         scriptCount: loaded.scriptCount,

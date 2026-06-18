@@ -79,7 +79,7 @@ describe("directory skill loading", () => {
         file: files.find((file) => file.id === fileId),
         text:
           fileId === "skill"
-            ? "---\nname: my-skill\ndescription: Runs validation.\nchainRunnable: true\nentrypoint: scripts/validate.js\n---\nFollow these instructions."
+            ? "---\nname: my-skill\ndescription: Runs validation.\nentrypoint: scripts/validate.js\n---\nFollow these instructions."
             : fileId === "reference"
               ? "# Schema"
               : "console.log('ok');",
@@ -98,7 +98,6 @@ describe("directory skill loading", () => {
         name: "my-skill",
         source: "workspace",
         description: "Runs validation.",
-        chainRunnable: true,
         hasEntrypoint: true,
         referenceCount: 1,
         scriptCount: 1,
@@ -189,7 +188,6 @@ describe("directory skill loading", () => {
         source: "server",
         description:
           "Synthesizes supported workspace text files into a sourced Markdown summary.",
-        chainRunnable: true,
       }),
     );
     expect(loaded?.instructions).toContain("Summary, Key Findings");

@@ -33,7 +33,6 @@ beforeEach(() => {
       name: "research-synthesis",
       source: "server",
       description: "Synthesizes supported workspace text files into a sourced Markdown summary.",
-      chainRunnable: true,
       hasEntrypoint: false,
       referenceCount: 0,
       scriptCount: 0,
@@ -52,7 +51,6 @@ describe("workspace skills list route", () => {
         expect.objectContaining({
           id: "server.research-synthesis",
           source: "server",
-          chainRunnable: true,
         }),
       ],
     });

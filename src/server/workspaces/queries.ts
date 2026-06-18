@@ -41,20 +41,6 @@ export type WorkspaceOverview = {
   selected: WorkspaceSelectedText | null;
 };
 
-export type WorkspaceAutomationFile = {
-  id: string;
-  path: string;
-  contentType: string;
-  sizeBytes: number;
-  readableByCore: boolean;
-};
-
-export type WorkspaceAutomationData = {
-  workspace: Workspace;
-  files: WorkspaceAutomationFile[];
-  skills: SkillSummary[];
-  canEdit: boolean;
-};
 
 export async function listUserWorkspaces(
   userId: string,
@@ -143,30 +129,3 @@ export async function getWorkspaceOverview(input: {
   return { workspace, files, skills, logs, canEdit, selected };
 }
 
-export async function getWorkspaceAutomationData(input: {
-  userId: string;
-  workspaceId: string;
-}): Promise<WorkspaceAutomationData> {
-  const { workspace, role } = await requireWorkspaceMembership(
-    input.userId,
-    input.workspaceId,
-    WorkspaceRole.VIEWER,
-  );
-  const canEdit = hasRoleAtLeast(role, WorkspaceRole.EDITOR);
-  const [workspaceFiles, skills] = await Promise.all([
-    listWorkspaceFiles(input.userId, input.workspaceId),
-    listAvailableSkills({
-      userId: input.userId,
-      workspaceId: input.workspaceId,
-    }),
-  ]);
-  const files = workspaceFiles.map((file) => ({
-    id: file.id,
-    path: file.path,
-    contentType: file.contentType,
-    sizeBytes: file.sizeBytes,
-    readableByCore: isCoreReadableText(file.path, file.contentType),
-  }));
-
-  return { workspace, files, skills, canEdit };
-}
