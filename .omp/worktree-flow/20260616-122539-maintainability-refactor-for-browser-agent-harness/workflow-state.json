@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "7b59e4a59d5716b6b9ce211a5f178c990f276dd6",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/maintainability-refactor-for-browser-agent-harness",
+  "feature_worktree": "/mnt/c/Users/joesa/Code/browser-agent-harness-maintainability-refactor-for-browser-agent-harness",
+  "integration_branch": "integration/maintainability-refactor-for-browser-agent-harness-20260616-125408",
+  "integration_worktree": "/mnt/c/Users/joesa/Code/browser-agent-harness-integrate-maintainability-refactor-for-browser-agent-harness-20260616-125408",
+  "merge_mode": "squash",
+  "plan_path": "C:\\Users\\joesa\\Code\\browser-agent-harness\\.omp\\worktree-flow\\20260616-122539-maintainability-refactor-for-browser-agent-harness\\plan.md",
+  "plan_title": "Maintainability Refactor for Browser Agent Harness",
+  "run_id": "20260616-122539-maintainability-refactor-for-browser-agent-harness",
+  "slug": "maintainability-refactor-for-browser-agent-harness"
+}

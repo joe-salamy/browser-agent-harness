@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "8b7a84b38a80ae5b43b10c3a51c837ba32677072",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/context",
+  "feature_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-context",
+  "integration_branch": "integration/context-20260615-210350",
+  "integration_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-integrate-context-20260615-210350",
+  "merge_mode": "squash",
+  "plan_path": "C:\\Users\\joesa\\Code\\browser-agent-harness\\.omp\\worktree-flow\\20260615-204927-context\\plan.md",
+  "plan_title": "Context",
+  "run_id": "20260615-204927-context",
+  "slug": "context"
+}

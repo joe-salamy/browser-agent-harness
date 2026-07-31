@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "5409507bad3a2b6e5020a85d298195b53a042bb7",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/extensible-workspace-and-server-skills",
+  "feature_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-extensible-workspace-and-server-skills",
+  "integration_branch": "integration/extensible-workspace-and-server-skills-20260615-233205",
+  "integration_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-integrate-extensible-workspace-and-server-skills-20260615-233205",
+  "merge_mode": "squash",
+  "plan_path": "C:\\Users\\joesa\\Code\\browser-agent-harness\\.omp\\worktree-flow\\20260615-225259-extensible-workspace-and-server-skills\\plan.md",
+  "plan_title": "Extensible Workspace and Server Skills",
+  "run_id": "20260615-225259-extensible-workspace-and-server-skills",
+  "slug": "extensible-workspace-and-server-skills"
+}

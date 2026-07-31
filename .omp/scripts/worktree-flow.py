@@ -8,6 +8,7 @@ import json
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -17,11 +18,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
-EMPTY_SKILL_USAGE_LEDGER = {"version": 1, "scopes": {}}
 WORKFLOW_STATE_FILENAME = "workflow-state.json"
 MAX_LOG_OUTPUT_CHARS = 20_000
 DEFAULT_BASE_CANDIDATES = ("main", "master")
 WORKTREE_FLOW_DIRNAME = "worktree-flow"
+RUN_ID_TIMESTAMP_FORMAT = "%Y%m%d-%H%M%S"
 
 
 def decode_subprocess_output(value: object) -> str:
@@ -50,6 +51,12 @@ def logged_command(args: Sequence[str]) -> list[str]:
     if command and command[-1] == "-":
         command.pop()
     return command
+
+def shell_command(args: Sequence[str]) -> str:
+    command = [str(arg) for arg in args]
+    if os.name == "nt":
+        return subprocess.list2cmdline(command)
+    return shlex.join(command)
 
 
 def wsl_drive_mount_to_windows_path(path: Path) -> str | None:
@@ -260,6 +267,11 @@ def derive_slug(plan_path: Path) -> str:
     return slugify(plan_title(plan_path))
 
 
+def timestamped_run_id(slug: str, *, stamp: str | None = None) -> str:
+    timestamp = stamp or datetime.now().strftime(RUN_ID_TIMESTAMP_FORMAT)
+    return f"{timestamp}-{slug}"
+
+
 def slug_from_branch(branch: str) -> str:
     if branch.startswith("feature/"):
         return branch.removeprefix("feature/")
@@ -281,6 +293,12 @@ def ensure_dir(path: Path) -> None:
 def write_text(path: Path, text: str) -> None:
     ensure_dir(path.parent)
     path.write_text(text, encoding="utf-8", newline="\n")
+
+
+@dataclass(frozen=True)
+class GitWorktree:
+    path: Path
+    branch: str | None
 
 
 @dataclass(frozen=True)
@@ -317,7 +335,7 @@ class FlowConfig:
     harness_dir: Path
     merge_mode: str
     keep_worktrees: bool
-    verbose: bool
+    verbose: bool = False
 
     command_timeout_seconds: float | None = None
 
@@ -327,6 +345,7 @@ class HarnessWorktreeFlow:
         self.config = config
         self.runner = runner
         self.log_file: Path | None = None
+        self._last_state: WorkflowState | None = None
         self._base = config.base
 
     @property
@@ -343,26 +362,71 @@ class HarnessWorktreeFlow:
     def worktree_flow_dir(self) -> Path:
         return self.config.harness_dir / WORKTREE_FLOW_DIRNAME
 
+    def run_id_from_plan(self, repo: Path, plan: Path) -> str | None:
+        try:
+            source_rel = plan.resolve().relative_to(repo.resolve())
+        except ValueError:
+            return None
+        if source_rel.name != "plan.md":
+            return None
+        worktree_flow_dir = self.worktree_flow_dir
+        if worktree_flow_dir.is_absolute():
+            try:
+                worktree_flow_dir = worktree_flow_dir.resolve().relative_to(repo.resolve())
+            except ValueError:
+                return None
+        if source_rel.parent.parent == worktree_flow_dir:
+            return source_rel.parent.name
+        return None
+
     @property
     def handoff_dir(self) -> Path:
         return self.config.harness_dir / "handoff"
+
+    @staticmethod
+    def print_checkpoint(
+        status: str, title: str, details: Sequence[tuple[str, object | None]] = ()
+    ) -> None:
+        print(f"[{status}] {title}")
+        for label, value in details:
+            if value is not None and value != "":
+                print(f"  {label}: {value}")
 
     def run(self) -> None:
         repo = self.git_root(self.config.repo.resolve())
         plan = self.config.plan.resolve()
         self.validate(repo, plan)
 
-        names = self.unique_feature_names(repo, derive_slug(plan))
+        names = self.unique_feature_names(
+            repo, derive_slug(plan), self.run_id_from_plan(repo, plan)
+        )
         self.prepare_harness_permissions(repo / self.harness_dir)
         self.prepare_git_permissions(repo)
         # Keep workflow logs inside the script-created worktree. Writing them in
         # the primary checkout makes the checkout dirty before the final merge.
-        self.announce_phase("Feature worktree")
-        self.announce(f"Branch: {names.branch}")
-        self.announce(f"Worktree: {names.worktree}")
+        self.print_checkpoint(
+            "start",
+            "Worktree flow",
+            (
+                ("plan", plan),
+                ("base", self.base),
+                ("merge mode", self.config.merge_mode),
+            ),
+        )
+        self.print_checkpoint(
+            "ready",
+            "Feature target",
+            (
+                ("branch", names.branch),
+                ("worktree", names.worktree),
+            ),
+        )
 
         try:
             self.create_feature_worktree(repo, names)
+            self.print_checkpoint(
+                "done", "Feature worktree", (("worktree", names.worktree),)
+            )
             self.start_log(names.worktree, names.run_id)
             self.log_event(
                 "feature_worktree_created",
@@ -399,8 +463,18 @@ class HarnessWorktreeFlow:
     def workflow_state_file(self, worktree: Path) -> Path:
         return worktree / self.handoff_dir / WORKFLOW_STATE_FILENAME
 
+    def read_workflow_state_file(self, path: Path) -> WorkflowState | None:
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return WorkflowState(**data)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise FlowError(f"Invalid workflow state file: {path}") from exc
+
     def save_workflow_state_file(self, path: Path, state: WorkflowState) -> None:
         self.ensure_dir(path.parent)
+        self._last_state = state
         self.write_text(
             path, json.dumps(asdict(state), indent=2, sort_keys=True) + "\n"
         )
@@ -412,14 +486,56 @@ class HarnessWorktreeFlow:
         self.save_workflow_state_file(self.workflow_state_file(target_worktree), state)
 
     def load_workflow_state(self, worktree: Path) -> WorkflowState | None:
-        path = self.workflow_state_file(worktree)
-        if not path.exists():
+        state = self.read_workflow_state_file(self.workflow_state_file(worktree))
+        self._last_state = state
+        return state
+
+    def resume_command_args(self) -> list[str] | None:
+        state = self._last_state
+        if state is None:
             return None
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return WorkflowState(**data)
-        except (json.JSONDecodeError, TypeError) as exc:
-            raise FlowError(f"Invalid workflow state file: {path}") from exc
+        args = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            "--resume",
+            "--plan",
+            str(self.config.plan),
+            "--worktree",
+            state.feature_worktree,
+            "--repo",
+            str(self.config.repo),
+            "--base",
+            state.base,
+            "--branch",
+            state.feature_branch,
+            "--run-id",
+            state.run_id,
+            "--harness",
+            self.config.harness,
+            "--harness-dir",
+            str(self.harness_dir),
+            "--merge-mode",
+            state.merge_mode,
+        ]
+        if self.config.model:
+            args.extend(["--model", self.config.model])
+        if self.config.keep_worktrees:
+            args.append("--keep-worktrees")
+        if self.config.command_timeout_seconds is not None:
+            args.extend(
+                ["--command-timeout-seconds", str(self.config.command_timeout_seconds)]
+            )
+        if state.integration_worktree is not None:
+            args.extend(["--integration-worktree", state.integration_worktree])
+        if state.integration_branch is not None:
+            args.extend(["--integration-branch", state.integration_branch])
+        return args
+
+    def resume_command(self) -> str | None:
+        args = self.resume_command_args()
+        if args is None:
+            return None
+        return shell_command(args)
 
     def update_workflow_state(
         self, state: WorkflowState, **changes: object
@@ -482,10 +598,87 @@ class HarnessWorktreeFlow:
         root = result.stdout.strip()
         return Path(root).resolve() if root else start
 
-    def unique_feature_names(self, repo: Path, slug: str) -> Names:
+    def git_worktrees(self, repo: Path) -> list[GitWorktree]:
+        result = self.runner.run(["git", "worktree", "list", "--porcelain"], repo)
+        entries: list[GitWorktree] = []
+        path: Path | None = None
+        branch: str | None = None
+
+        def add_entry() -> None:
+            nonlocal path, branch
+            if path is not None:
+                entries.append(GitWorktree(path.resolve(), branch))
+            path = None
+            branch = None
+
+        for line in result.stdout.splitlines():
+            if not line:
+                add_entry()
+                continue
+            key, _, value = line.partition(" ")
+            if key == "worktree":
+                add_entry()
+                path = Path(value).expanduser()
+            elif key == "branch":
+                branch = value.removeprefix("refs/heads/")
+        add_entry()
+        return entries
+
+    def matching_resume_worktrees(
+        self, worktrees: Sequence[GitWorktree], run_id: str
+    ) -> list[Path]:
+        matches: list[Path] = []
+        for worktree in worktrees:
+            state = self.read_workflow_state_file(
+                self.workflow_state_file(worktree.path)
+            )
+            if state is not None and state.run_id == run_id:
+                matches.append(worktree.path)
+        return matches
+
+    def infer_resume_worktree(self, repo: Path, plan: Path) -> Path:
+        worktrees = self.git_worktrees(repo)
+        run_id = self.run_id_from_plan(repo, plan)
+        if run_id is not None:
+            matches = self.matching_resume_worktrees(worktrees, run_id)
+            if len(matches) == 1:
+                return matches[0]
+            if len(matches) > 1:
+                raise FlowError(
+                    f"Multiple worktrees have workflow state for run id {run_id}; "
+                    "pass --worktree explicitly."
+                )
+
+        slug = derive_slug(plan)
+        expected = (repo.parent / f"{repo.name}-{slug}").resolve()
+        expected_matches = [
+            worktree.path for worktree in worktrees if worktree.path == expected
+        ]
+        if len(expected_matches) == 1:
+            return expected_matches[0]
+
+        branch = f"feature/{slug}"
+        branch_matches = [
+            worktree.path for worktree in worktrees if worktree.branch == branch
+        ]
+        if len(branch_matches) == 1:
+            return branch_matches[0]
+        if len(branch_matches) > 1:
+            raise FlowError(
+                f"Multiple worktrees use branch {branch}; pass --worktree explicitly."
+            )
+
+        raise FlowError(
+            "Could not infer the feature worktree for --resume; pass --worktree."
+        )
+
+    def unique_feature_names(
+        self, repo: Path, slug: str, run_id: str | None = None
+    ) -> Names:
         repo_name = repo.name
         parent = repo.parent
         suffix = 1
+        stamp = datetime.now().strftime(RUN_ID_TIMESTAMP_FORMAT)
         while True:
             candidate_slug = slug if suffix == 1 else f"{slug}-{suffix}"
             branch = f"feature/{candidate_slug}"
@@ -494,8 +687,10 @@ class HarnessWorktreeFlow:
                 ["git", "branch", "--list", branch], repo
             ).stdout.strip()
             if not branch_exists and not worktree.exists():
-                run_id = datetime.now().strftime(f"{candidate_slug}-%Y%m%d-%H%M%S")
-                return Names(candidate_slug, branch, worktree, run_id)
+                candidate_run_id = run_id or timestamped_run_id(
+                    candidate_slug, stamp=stamp
+                )
+                return Names(candidate_slug, branch, worktree, candidate_run_id)
             suffix += 1
 
     def create_feature_worktree(self, repo: Path, names: Names) -> None:
@@ -525,9 +720,9 @@ class HarnessWorktreeFlow:
         self.prepare_git_permissions(worktree)
 
     def ensure_plan_in_worktree(
-        self, repo: Path, plan: Path, worktree: Path, slug: str
+        self, repo: Path, plan: Path, worktree: Path, names: Names
     ) -> Path:
-        rel = self.worktree_flow_dir / slug / "plan.md"
+        rel = self.worktree_flow_dir / names.run_id / "plan.md"
         if is_relative_to(plan, repo):
             source_rel = plan.relative_to(repo)
             if source_rel == rel:
@@ -553,7 +748,7 @@ class HarnessWorktreeFlow:
                 run_id = record.get("run_id")
                 if isinstance(run_id, str) and run_id:
                     return run_id
-        return datetime.now().strftime(f"{fallback_slug}-%Y%m%d-%H%M%S")
+        return timestamped_run_id(fallback_slug)
 
     def tracked_path_exists(self, worktree: Path, path: Path) -> bool:
         try:
@@ -567,9 +762,15 @@ class HarnessWorktreeFlow:
         )
         return result.returncode == 0
 
-    def remove_untracked_workflow_plan(self, worktree: Path, slug: str) -> None:
-        workflow_plans = (
-            worktree / self.worktree_flow_dir / slug / "plan.md",
+    def remove_untracked_workflow_plan(
+        self, worktree: Path, slug: str, run_id: str | None = None
+    ) -> None:
+        candidates = [run_id] if run_id else []
+        candidates.append(slug)
+        workflow_plans = tuple(
+            worktree / self.worktree_flow_dir / candidate / "plan.md"
+            for candidate in dict.fromkeys(candidates)
+        ) + (
             worktree / self.worktree_flow_dir / slug / ".plan.md",
             worktree / self.worktree_flow_dir / f"{slug}.md",
         )
@@ -643,6 +844,17 @@ class HarnessWorktreeFlow:
             Path(state.feature_worktree),
             state.run_id,
         )
+        self.print_checkpoint(
+            "resume",
+            "Worktree flow",
+            (
+                ("plan", plan),
+                ("base", self.base),
+                ("branch", names.branch),
+                ("worktree", names.worktree),
+                ("merge mode", state.merge_mode),
+            ),
+        )
         state, plan_in_worktree = self.run_feature_phases(repo, plan, state, names)
         if state.merge_mode == "stop":
             state = self.stop_before_merge(repo, state, names, plan_in_worktree)
@@ -654,24 +866,27 @@ class HarnessWorktreeFlow:
     def stop_before_merge(
         self, repo: Path, state: WorkflowState, names: Names, plan_in_worktree: Path
     ) -> WorkflowState:
-        archive_dir = self.archive_handoff(
-            repo, names.worktree, names.run_id, plan_in_worktree
-        )
+        archive_dir = self.archive_handoff(repo, names.worktree, names.run_id)
+        self.archive_plan(archive_dir, plan_in_worktree)
         state = self.update_workflow_state(
             state, completed_stage="stopped_before_merge"
         )
-        print(f"Handoff archive: {archive_dir}")
-        print("Stopped before merge by request.")
-        print(f"Plan: {plan_in_worktree}")
-        print(f"Worktree: {names.worktree}")
-        print(f"Branch: {names.branch}")
+        self.print_checkpoint(
+            "stop",
+            "Stopped before merge",
+            (
+                ("handoff archive", archive_dir),
+                ("plan", plan_in_worktree),
+                ("worktree", names.worktree),
+                ("branch", names.branch),
+            ),
+        )
         return state
 
     def run_feature_phases(
         self, repo: Path, plan: Path, state: WorkflowState, names: Names
     ) -> tuple[WorkflowState, Path]:
         state, plan_in_worktree = self.ensure_plan_stage(repo, plan, state, names)
-        state = self.ensure_skill_usage_baseline(repo, state, names)
         state = self.ensure_implementation_complete(state, names, plan_in_worktree)
         state = self.ensure_audit_complete(state, names, plan_in_worktree)
         return state, plan_in_worktree
@@ -681,35 +896,35 @@ class HarnessWorktreeFlow:
     ) -> tuple[WorkflowState, Path]:
         if state.plan_path and Path(state.plan_path).exists():
             plan_in_worktree = Path(state.plan_path)
+            self.print_checkpoint(
+                "skip", "Plan staging", (("plan", plan_in_worktree),)
+            )
         elif state.completed_stage == "legacy_state_inferred":
             plan_in_worktree = self.copy_plan_to_handoff(plan, names.worktree)
-            self.remove_untracked_workflow_plan(names.worktree, names.slug)
+            self.remove_untracked_workflow_plan(
+                names.worktree, names.slug, names.run_id
+            )
             state = self.update_workflow_state(
                 state,
                 plan_path=str(plan_in_worktree),
                 completed_stage="plan_copied",
+            )
+            self.print_checkpoint(
+                "done", "Plan staging", (("plan", plan_in_worktree),)
             )
         else:
             plan_in_worktree = self.ensure_plan_in_worktree(
-                repo, plan, names.worktree, names.slug
+                repo, plan, names.worktree, names
             )
             state = self.update_workflow_state(
                 state,
                 plan_path=str(plan_in_worktree),
                 completed_stage="plan_copied",
             )
-        return state, plan_in_worktree
-
-    def ensure_skill_usage_baseline(
-        self, repo: Path, state: WorkflowState, names: Names
-    ) -> WorkflowState:
-        baseline = names.worktree / self.handoff_dir / "skill-usage-baseline.json"
-        if not baseline.exists():
-            self.snapshot_skill_usage_baseline(names.worktree, repo)
-            state = self.update_workflow_state(
-                state, completed_stage="skill_usage_baseline_snapshotted"
+            self.print_checkpoint(
+                "done", "Plan staging", (("plan", plan_in_worktree),)
             )
-        return state
+        return state, plan_in_worktree
 
     def ensure_implementation_complete(
         self, state: WorkflowState, names: Names, plan_in_worktree: Path
@@ -718,8 +933,11 @@ class HarnessWorktreeFlow:
             names.worktree / self.handoff_dir / "implementation-summary.md"
         )
         if not implementation_summary.exists():
-            self.announce_phase("Implementation")
-            self.announce("Running harness implementation...")
+            self.print_checkpoint(
+                "start",
+                "Implementation",
+                (("worktree", names.worktree), ("plan", plan_in_worktree)),
+            )
             self.run_implementation(names.worktree, plan_in_worktree)
             self.require_file(implementation_summary)
             self.require_no_tracked_handoff_artifacts(names.worktree, names.branch)
@@ -727,12 +945,17 @@ class HarnessWorktreeFlow:
             state = self.update_workflow_state(
                 state, completed_stage="implementation_complete"
             )
-            self.announce("Implementation complete.")
+            self.print_checkpoint(
+                "done", "Implementation", (("summary", implementation_summary),)
+            )
         else:
             self.require_commits_since_base(
                 names.worktree, names.branch, "Implementation"
             )
             self.require_branch_changed_since_base(names.worktree, names.branch)
+            self.print_checkpoint(
+                "skip", "Implementation", (("summary", implementation_summary),)
+            )
         return state
 
     def ensure_audit_complete(
@@ -740,12 +963,15 @@ class HarnessWorktreeFlow:
     ) -> WorkflowState:
         audit_summary = names.worktree / self.handoff_dir / "audit-summary.md"
         if not audit_summary.exists():
+            self.print_checkpoint(
+                "start",
+                "Audit",
+                (("worktree", names.worktree), ("plan", plan_in_worktree)),
+            )
             audit_head_before = self.head_rev(names.worktree)
             state = self.update_workflow_state(
                 state, audit_head_before=audit_head_before
             )
-            self.announce_phase("Audit")
-            self.announce("Running harness audit...")
             self.run_audit(names.worktree, plan_in_worktree)
             self.require_file(audit_summary)
             self.require_no_tracked_handoff_artifacts(names.worktree, names.branch)
@@ -753,11 +979,12 @@ class HarnessWorktreeFlow:
                 names.worktree, names.branch, audit_head_before
             )
             state = self.update_workflow_state(state, completed_stage="audit_complete")
-            self.announce("Audit complete.")
+            self.print_checkpoint("done", "Audit", (("summary", audit_summary),))
         else:
             self.require_no_tracked_handoff_artifacts(names.worktree, names.branch)
             self.require_clean_except_handoff(names.worktree, "Audit")
             self.require_branch_changed_since_base(names.worktree, names.branch)
+            self.print_checkpoint("skip", "Audit", (("summary", audit_summary),))
         return state
 
     def implementation_prompt(self, worktree: Path, plan_path: Path) -> str:
@@ -771,7 +998,7 @@ Requirements:
 - Run focused tests or checks appropriate to the change.
 - Commit the completed implementation.
 - Write `{self.handoff_dir.as_posix()}/implementation-summary.md` with plan path, branch/worktree, changed files, behavior changes, tests run, skipped checks, assumptions, and known risks.
-- Do not commit files under `{self.handoff_dir.as_posix()}/` or `{self.worktree_flow_dir.as_posix()}/`; they are workflow artifacts and must remain untracked.
+- Do not commit files under `{self.handoff_dir.as_posix()}/`; they are workflow artifacts and must remain untracked.
 """
 
     def run_implementation(self, worktree: Path, plan_path: Path) -> None:
@@ -801,7 +1028,7 @@ Read:
 
 Audit the actual diff against `{self.base}`. Fix confirmed issues and run relevant tests.
 {audit_finish_instruction}
-Do not commit files under `{self.handoff_dir.as_posix()}/` or `{self.worktree_flow_dir.as_posix()}/`; they are workflow artifacts and must remain untracked.
+Do not commit files under `{self.handoff_dir.as_posix()}/`; they are workflow artifacts and must remain untracked.
 Write `{summary.as_posix()}` before finishing.
 """
 
@@ -1049,38 +1276,43 @@ Write `{summary.as_posix()}` before finishing.
     def finish(
         self, repo: Path, state: WorkflowState, names: Names, plan_path: Path
     ) -> WorkflowState:
-        self.announce_phase("Integration")
         self.require_no_tracked_handoff_artifacts(repo, names.branch)
         self.require_ready_for_integration(names.worktree, names.branch)
+        self.print_checkpoint(
+            "start",
+            "Integration",
+            (
+                ("mode", state.merge_mode),
+                ("feature branch", names.branch),
+            ),
+        )
         self.runner.run(["git", "fetch", "--all", "--prune"], repo)
         state, integration_worktree = self.ensure_integration_worktree(
             repo, state, names, plan_path
         )
+        self.print_checkpoint(
+            "ready",
+            "Integration worktree",
+            (
+                ("branch", state.integration_branch),
+                ("worktree", integration_worktree),
+            ),
+        )
         if state.integration_branch is None:
             raise FlowError("Integration branch is missing from workflow state.")
         integration_branch = state.integration_branch
-        self.announce(f"Integration branch: {integration_branch}")
         integration_plan = self.integration_plan_path(
             names.worktree, integration_worktree, plan_path
-        )
-        feature_baseline = (
-            integration_worktree / self.handoff_dir / "skill-usage-baseline.json"
         )
 
         integrated = False
         archive_dir: Path | None = None
         try:
-            skill_usage_restored = False
             integration_has_commits = self.branch_has_commits_since_base(
                 integration_worktree, integration_branch
             )
             if self.has_unmerged_paths(integration_worktree):
-                unmerged = self.unmerged_paths(integration_worktree)
-                if unmerged:
-                    self.restore_integration_skill_usage_to_head(
-                        integration_worktree, repo
-                    )
-                    skill_usage_restored = True
+                pass
             elif (
                 self.has_non_handoff_changes(integration_worktree)
                 and not integration_has_commits
@@ -1089,34 +1321,34 @@ Write `{summary.as_posix()}` before finishing.
             elif integration_has_commits:
                 pass
             elif state.merge_mode == "squash":
-                self.announce(
-                    f"Merging {names.branch} into {integration_branch} ({state.merge_mode})."
+                self.print_checkpoint(
+                    "start", "Squash merge", (("feature branch", names.branch),)
                 )
                 merge = self.runner.run(
                     ["git", "merge", "--squash", names.branch],
                     integration_worktree,
                     check=False,
                 )
-                skill_usage_restored = (
-                    self.handle_merge_failure(
-                        merge, integration_worktree, repo, "squash_merge"
-                    )
-                    or skill_usage_restored
+                self.handle_merge_failure(
+                    merge, integration_worktree, repo, "squash_merge"
+                )
+                self.print_checkpoint(
+                    "done", "Squash merge", (("feature branch", names.branch),)
                 )
             else:
-                self.announce(
-                    f"Merging {names.branch} into {integration_branch} ({state.merge_mode})."
+                self.print_checkpoint(
+                    "start", "No-ff merge", (("feature branch", names.branch),)
                 )
                 merge = self.runner.run(
                     ["git", "merge", "--no-ff", "--no-commit", names.branch],
                     integration_worktree,
                     check=False,
                 )
-                skill_usage_restored = (
-                    self.handle_merge_failure(
-                        merge, integration_worktree, repo, "no_ff_merge"
-                    )
-                    or skill_usage_restored
+                self.handle_merge_failure(
+                    merge, integration_worktree, repo, "no_ff_merge"
+                )
+                self.print_checkpoint(
+                    "done", "No-ff merge", (("feature branch", names.branch),)
                 )
 
             conflict_summary = (
@@ -1129,7 +1361,7 @@ Write `{summary.as_posix()}` before finishing.
                 / self.handoff_dir
                 / "post-conflict-audit-summary.md"
             )
-            self.resolve_non_skill_conflicts(
+            self.resolve_merge_conflicts(
                 integration_worktree, names, integration_plan, conflict_summary
             )
             self.run_post_conflict_audit_if_needed(
@@ -1139,16 +1371,12 @@ Write `{summary.as_posix()}` before finishing.
                 post_conflict_summary,
             )
 
-            if not skill_usage_restored:
-                self.restore_integration_skill_usage_to_head(integration_worktree, repo)
 
             state = self.commit_integration_if_needed(
                 state,
                 names,
                 integration_worktree,
                 integration_branch,
-                feature_baseline,
-                repo,
             )
             state = self.fast_forward_base_if_needed(
                 repo, state, names, integration_branch
@@ -1156,7 +1384,6 @@ Write `{summary.as_posix()}` before finishing.
             state, archive_dir = self.archive_successful_handoff(
                 repo, state, integration_worktree, integration_plan
             )
-            self.remove_primary_plan_input(repo, state.slug)
             integrated = True
         finally:
             if (
@@ -1188,12 +1415,11 @@ Write `{summary.as_posix()}` before finishing.
             raise FlowError(format_command_failure(result))
         unmerged = self.unmerged_paths(integration_worktree)
         if unmerged:
-            self.restore_integration_skill_usage_to_head(integration_worktree, repo)
             return True
         self.log_command_result("command_failure", result, phase="finish", step=step)
         raise FlowError(format_command_failure(result))
 
-    def resolve_non_skill_conflicts(
+    def resolve_merge_conflicts(
         self,
         integration_worktree: Path,
         names: Names,
@@ -1201,14 +1427,10 @@ Write `{summary.as_posix()}` before finishing.
         conflict_summary: Path,
     ) -> None:
         if self.has_unmerged_paths(integration_worktree):
-            unmerged = self.unmerged_paths(integration_worktree)
-            if not self.only_skill_usage_unmerged(unmerged):
-                if not conflict_summary.exists():
-                    self.run_conflict_resolution(
-                        integration_worktree, names, integration_plan
-                    )
-                if self.has_unmerged_paths(integration_worktree):
-                    raise FlowError("Merge conflicts remain after conflict resolution.")
+            if not conflict_summary.exists():
+                self.run_conflict_resolution(
+                    integration_worktree, names, integration_plan
+                )
             if self.has_unmerged_paths(integration_worktree):
                 raise FlowError("Merge conflicts remain after conflict resolution.")
 
@@ -1228,17 +1450,14 @@ Write `{summary.as_posix()}` before finishing.
         names: Names,
         integration_worktree: Path,
         integration_branch: str,
-        feature_baseline: Path,
-        repo: Path,
     ) -> WorkflowState:
         if not self.branch_has_commits_since_base(
             integration_worktree, integration_branch
         ):
-            self.consolidate_skill_usage(
-                names.worktree, integration_worktree, repo, feature_baseline
-            )
-            state = self.update_workflow_state(
-                state, completed_stage="skill_usage_consolidated"
+            self.print_checkpoint(
+                "start",
+                "Integration commit",
+                (("branch", integration_branch), ("worktree", integration_worktree)),
             )
             self.stage_integration_changes(integration_worktree)
             state = self.update_workflow_state(
@@ -1253,15 +1472,24 @@ Write `{summary.as_posix()}` before finishing.
             state = self.update_workflow_state(
                 state, completed_stage="integration_committed"
             )
-            self.announce("Integration commit complete.")
+            self.print_checkpoint(
+                "done", "Integration commit", (("branch", integration_branch),)
+            )
         else:
-            self.announce("Integration commit already present.")
+            self.print_checkpoint(
+                "skip", "Integration commit", (("branch", integration_branch),)
+            )
         return state
 
     def fast_forward_base_if_needed(
         self, repo: Path, state: WorkflowState, names: Names, integration_branch: str
     ) -> WorkflowState:
         if not self.base_contains_branch(repo, integration_branch):
+            self.print_checkpoint(
+                "start",
+                "Fast-forward base",
+                (("base", self.base), ("integration branch", integration_branch)),
+            )
             self.prepare_primary_for_fast_forward(
                 repo, integration_branch, names.run_id
             )
@@ -1282,9 +1510,11 @@ Write `{summary.as_posix()}` before finishing.
             state = self.update_workflow_state(
                 state, completed_stage="base_fast_forwarded"
             )
-            self.announce(f"Fast-forwarded {self.base}.")
-        else:
-            self.announce(f"{self.base} already contains {integration_branch}.")
+            self.print_checkpoint(
+                "done",
+                "Fast-forward base",
+                (("base", self.base), ("integration branch", integration_branch)),
+            )
         return state
 
     def archive_successful_handoff(
@@ -1294,17 +1524,17 @@ Write `{summary.as_posix()}` before finishing.
         integration_worktree: Path,
         plan_path: Path,
     ) -> tuple[WorkflowState, Path]:
-        archive_dir = self.archive_handoff(
-            repo, integration_worktree, state.run_id, plan_path
-        )
+        archive_dir = self.archive_handoff(repo, integration_worktree, state.run_id)
+        self.archive_plan(archive_dir, plan_path)
         state = self.update_workflow_state(state, completed_stage="handoff_archived")
-        print(f"Handoff archive: {archive_dir}")
+        self.print_checkpoint(
+            "done", "Handoff archived", (("handoff archive", archive_dir),)
+        )
         return state, archive_dir
 
     def commit_worktree_flow_artifacts_if_needed(
         self, repo: Path, plan_title: str
     ) -> None:
-        self.announce("Committing workflow artifacts...")
         self.runner.run(["git", "switch", self.base], repo)
         rel = self.worktree_flow_dir.as_posix()
         self.runner.run(["git", "add", "-A", "--", rel], repo)
@@ -1314,7 +1544,6 @@ Write `{summary.as_posix()}` before finishing.
             check=False,
         )
         if diff.returncode == 0:
-            self.announce("No workflow artifact changes to commit.")
             return
         if diff.returncode != 1:
             raise FlowError(format_command_failure(diff))
@@ -1322,7 +1551,6 @@ Write `{summary.as_posix()}` before finishing.
             ["git", "commit", "-m", f"Harness artifacts: {plan_title}", "--", rel],
             repo,
         )
-        self.announce("Workflow artifacts committed.")
 
     def cleanup_successful_worktrees(
         self,
@@ -1333,12 +1561,15 @@ Write `{summary.as_posix()}` before finishing.
         names: Names,
         archive_dir: Path,
     ) -> WorkflowState:
-        self.announce_phase("Cleanup")
         self.cleanup(repo, integration_worktree, integration_branch, names)
         state = replace(state, completed_stage="cleanup_complete")
         self.save_workflow_state_file(archive_dir / WORKFLOW_STATE_FILENAME, state)
+        self.print_checkpoint(
+            "done",
+            "Worktree cleanup",
+            (("archive", archive_dir),),
+        )
         self.log_file = archive_dir / "workflow.jsonl"
-        self.announce("Removed temporary worktrees and branches.")
         self.log_event(
             "workflow_state_updated",
             completed_stage=state.completed_stage,
@@ -1425,34 +1656,20 @@ Do not commit.
             self.copy_file(plan_path, dest_plan)
         return dest_plan
 
-    def archive_handoff(
-        self, repo: Path, worktree: Path, run_id: str, plan_path: Path | None = None
-    ) -> Path:
-        archive_dir = repo / self.harness_dir / "worktree-flow" / run_id
+    def archive_handoff(self, repo: Path, worktree: Path, run_id: str) -> Path:
+        archive_dir = repo / self.worktree_flow_dir / run_id
         self.ensure_dir(archive_dir)
         source = worktree / self.handoff_dir
         if source.exists():
             for item in source.iterdir():
                 if item.is_file():
                     self.copy_file(item, archive_dir / item.name)
-        if plan_path is not None and plan_path.exists():
-            self.copy_file(plan_path, archive_dir / "plan.md")
         return archive_dir
 
-    def remove_primary_plan_input(self, repo: Path, slug: str) -> None:
-        directory = repo / self.worktree_flow_dir / slug
-        plan_path = directory / "plan.md"
+    def archive_plan(self, archive_dir: Path, plan_path: Path) -> None:
         if plan_path.exists():
-            plan_path.unlink()
-        try:
-            directory.rmdir()
-        except FileNotFoundError:
-            return
-        except OSError:
-            print(
-                f"Warning: left non-empty workflow plan directory: {directory}",
-                file=sys.stderr,
-            )
+            self.ensure_dir(archive_dir)
+            self.copy_file(plan_path, archive_dir / "plan.md")
 
     def stage_integration_changes(self, worktree: Path) -> None:
         self.runner.run(["git", "add", "-A"], worktree)
@@ -1461,123 +1678,13 @@ Do not commit.
             worktree,
             check=False,
         )
-        self.runner.run(
-            ["git", "reset", "HEAD", "--", self.worktree_flow_dir.as_posix()],
-            worktree,
-            check=False,
-        )
 
-    def skill_usage_script(self, worktree: Path) -> Path:
-        return worktree / self.harness_dir / "scripts" / "skill-usage-manager.py"
 
-    def skill_usage_harness_dir_candidates(self) -> tuple[str, ...]:
-        return (
-            self.harness_dir.as_posix(),
-            ".harness",
-            ".codex",
-            ".opencode",
-            ".claude",
-            ".omp",
-            ".agents",
-        )
 
-    def skill_usage_ledger(self, repo_root: Path) -> Path:
-        for harness_dir in self.skill_usage_harness_dir_candidates():
-            candidate = repo_root / harness_dir
-            if candidate.exists():
-                return candidate / "skill-usage.json"
-        return repo_root / ".skill-usage.json"
 
-    def skill_usage_ledger_in_worktree(
-        self, worktree: Path, reference_repo: Path
-    ) -> Path:
-        rel = self.skill_usage_ledger(reference_repo).relative_to(reference_repo)
-        return worktree / rel
 
-    def snapshot_skill_usage_baseline(
-        self, worktree: Path, reference_repo: Path | None = None
-    ) -> Path:
-        baseline = worktree / self.handoff_dir / "skill-usage-baseline.json"
-        ledger = (
-            self.skill_usage_ledger_in_worktree(worktree, reference_repo)
-            if reference_repo is not None
-            else self.skill_usage_ledger(worktree)
-        )
-        if self.runner.dry_run:
-            print(f"+ snapshot skill usage {ledger} {baseline}")
-            return baseline
-        self.ensure_dir(baseline.parent)
-        if ledger.exists():
-            self.copy_file(ledger, baseline)
-        else:
-            baseline.write_text(
-                json.dumps(EMPTY_SKILL_USAGE_LEDGER, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-                newline="\n",
-            )
-        return baseline
 
-    def restore_integration_skill_usage_to_head(
-        self, integration_worktree: Path, reference_repo: Path | None = None
-    ) -> None:
-        ledger = (
-            self.skill_usage_ledger_in_worktree(integration_worktree, reference_repo)
-            if reference_repo is not None
-            else self.skill_usage_ledger(integration_worktree)
-        )
-        rel = ledger.relative_to(integration_worktree).as_posix()
-        exists_at_head = (
-            self.runner.run(
-                ["git", "cat-file", "-e", f"HEAD:{rel}"],
-                integration_worktree,
-                check=False,
-            ).returncode
-            == 0
-        )
-        if exists_at_head:
-            self.runner.run(
-                ["git", "checkout", "HEAD", "--", rel], integration_worktree
-            )
-        else:
-            self.runner.run(
-                ["git", "rm", "-f", "--ignore-unmatch", "--", rel],
-                integration_worktree,
-                check=False,
-            )
-            if not self.runner.dry_run and ledger.exists():
-                ledger.unlink()
 
-    def consolidate_skill_usage(
-        self,
-        source_worktree: Path,
-        integration_worktree: Path,
-        target_repo: Path,
-        baseline_path: Path,
-    ) -> None:
-        self.runner.run(
-            [
-                sys.executable,
-                str(self.skill_usage_script(integration_worktree)),
-                "consolidate",
-                "--source-ledger",
-                str(self.skill_usage_ledger_in_worktree(source_worktree, target_repo)),
-                "--base-ledger",
-                str(baseline_path),
-                "--target-ledger",
-                str(
-                    self.skill_usage_ledger_in_worktree(
-                        integration_worktree, target_repo
-                    )
-                ),
-                "--source-repo",
-                str(source_worktree),
-                "--target-repo",
-                str(target_repo),
-                "--target-worktree",
-                str(integration_worktree),
-            ],
-            integration_worktree,
-        )
 
     def prepare_primary_for_fast_forward(
         self, repo: Path, integration_branch: str, run_id: str
@@ -1671,14 +1778,6 @@ Do not commit.
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
-    def only_skill_usage_unmerged(self, paths: Sequence[str]) -> bool:
-        expected = {
-            f"{harness_dir}/skill-usage.json"
-            for harness_dir in self.skill_usage_harness_dir_candidates()
-        }
-        return bool(paths) and all(
-            path.replace("\\", "/") in expected for path in paths
-        )
 
     def require_no_tracked_handoff_artifacts(
         self, worktree: Path, treeish: str
@@ -1786,14 +1885,10 @@ Do not commit.
     def path_is_handoff(self, path: str) -> bool:
         normalized = path.replace("\\", "/").strip('"')
         handoff = self.handoff_dir.as_posix().rstrip("/")
-        harness = self.harness_dir.as_posix().rstrip("/")
+        worktree_flow = self.worktree_flow_dir.as_posix().rstrip("/")
         if normalized == handoff or normalized.startswith(f"{handoff}/"):
             return True
-        if normalized == f"{harness}/skill-usage.json":
-            return True
-        if normalized == f"{harness}/worktree-flow" or normalized.startswith(
-            f"{harness}/worktree-flow/"
-        ):
+        if normalized == worktree_flow or normalized.startswith(f"{worktree_flow}/"):
             return True
         return False
 
@@ -2061,13 +2156,6 @@ foreach ($item in $items) {
             run_id=run_id,
         )
 
-    def announce_phase(self, title: str) -> None:
-        print()
-        print(f"== {title} ==")
-
-    def announce(self, message: str) -> None:
-        print(message)
-
     def log_event(self, event: str, **fields: object) -> None:
         if self.log_file is None:
             return
@@ -2122,7 +2210,10 @@ def build_parser(
     )
     parser.add_argument(
         "--worktree",
-        help="Existing feature worktree to resume; required with --resume.",
+        help=(
+            "Existing feature worktree to resume. Defaults to the saved plan's "
+            "existing worktree with --resume."
+        ),
     )
     parser.add_argument(
         "--branch", help="Feature branch for --resume. Defaults to the worktree branch."
@@ -2227,18 +2318,20 @@ def main(
         default_harness_dir=default_harness_dir,
     )
     args = parser.parse_args(argv)
-    if args.resume and not args.worktree:
-        parser.error("--worktree is required with --resume")
+    resume_worktree_arg = (
+        Path(args.worktree).expanduser().resolve() if args.worktree else None
+    )
     resume_only_args = resume_only_values(args)
     if not args.resume and any(value is not None for value in resume_only_args):
         parser.error("resume-only arguments require --resume")
 
     config = flow_config_from_args(args)
+    flow: HarnessWorktreeFlow | None = None
     try:
         flow = HarnessWorktreeFlow(
             config,
             CommandRunner(
-                dry_run=args.dry_run,
+                args.dry_run,
                 verbose=config.verbose,
                 command_timeout_seconds=config.command_timeout_seconds,
             ),
@@ -2247,10 +2340,11 @@ def main(
             repo = flow.git_root(config.repo.resolve())
             plan = config.plan.resolve()
             flow.validate(repo, plan)
+            worktree = resume_worktree_arg or flow.infer_resume_worktree(repo, plan)
             flow.resume(
                 repo=repo,
                 plan=plan,
-                worktree=Path(args.worktree).expanduser().resolve(),
+                worktree=worktree,
                 branch=args.branch,
                 run_id=args.run_id,
                 integration_worktree=integration_worktree_arg(
@@ -2262,6 +2356,11 @@ def main(
             flow.run()
     except FlowError as exc:
         print(str(exc), file=sys.stderr)
+        if flow is not None:
+            resume_command = flow.resume_command()
+            if resume_command is not None:
+                print("\nResume command:", file=sys.stderr)
+                print(f"  {resume_command}", file=sys.stderr)
         return 1
     return 0
 

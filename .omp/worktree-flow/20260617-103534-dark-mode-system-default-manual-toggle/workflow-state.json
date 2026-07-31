@@ -1,0 +1,14 @@
+{
+  "audit_head_before": "65b1c4972b76adcf693c5075da0af79d410cce9e",
+  "base": "master",
+  "completed_stage": "cleanup_complete",
+  "feature_branch": "feature/dark-mode-system-default-manual-toggle",
+  "feature_worktree": "C:/Users/joesa/Code/browser-agent-harness-dark-mode-system-default-manual-toggle",
+  "integration_branch": "integration/dark-mode-system-default-manual-toggle-20260617-110416",
+  "integration_worktree": "C:\\Users\\joesa\\Code\\browser-agent-harness-integrate-dark-mode-system-default-manual-toggle-20260617-110416",
+  "merge_mode": "squash",
+  "plan_path": "C:\\Users\\joesa\\Code\\browser-agent-harness\\.omp\\worktree-flow\\20260617-103534-dark-mode-system-default-manual-toggle\\plan.md",
+  "plan_title": "Dark Mode (system default + manual toggle)",
+  "run_id": "20260617-103534-dark-mode-system-default-manual-toggle",
+  "slug": "dark-mode-system-default-manual-toggle"
+}

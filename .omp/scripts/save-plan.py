@@ -3,8 +3,8 @@
 
 The OMP plan-mode session records the current plan as a ``local://`` path in
 ``mode_change`` entries. This script resolves that session-local file, copies it
-unchanged to ``.omp/worktree-flow/<slug-from-h1>/plan.md``, verifies the copy, and
-prints the command that runs ``worktree-flow.py`` with the saved plan.
+unchanged to ``.omp/worktree-flow/<timestamp>-<slug-from-h1>/plan.md``, verifies
+the copy, and prints the command that runs ``worktree-flow.py`` with the saved plan.
 """
 
 from __future__ import annotations
@@ -16,21 +16,13 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 DEFAULT_HARNESS = "omp"
 DEFAULT_HARNESS_DIR = Path(".omp")
 DEFAULT_PLAN_NAME = "PLAN.md"
-GENERIC_PLAN_TITLE_SLUGS = {
-    "context",
-    "plan",
-    "implementation",
-    "implementation-plan",
-    "task",
-    "todo",
-    "changes",
-}
 WORKTREE_FLOW_DIR = Path(".omp") / "worktree-flow"
 
 
@@ -46,19 +38,6 @@ def slugify(value: str, *, max_words: int = 6, max_len: int = 60) -> str:
     slug = "-".join(words[:max_words]) or "harness-plan"
     return slug[:max_len].strip("-") or "harness-plan"
 
-def is_generic_plan_title(title: str) -> bool:
-    return slugify(title) in GENERIC_PLAN_TITLE_SLUGS
-
-
-def warn_if_generic_plan_title(title: str) -> None:
-    if is_generic_plan_title(title):
-        print(
-            f'Warning: plan H1 "{title}" is generic; use a descriptive H1 because '
-            "worktree-flow uses it for branch names, archive folders, and commit messages.",
-            file=sys.stderr,
-        )
-
-
 
 def plan_title(plan_path: Path) -> str:
     text = plan_path.read_bytes().decode("utf-8-sig")
@@ -67,6 +46,11 @@ def plan_title(plan_path: Path) -> str:
         if match:
             return match.group(1).strip()
     return plan_path.stem
+
+
+def timestamped_run_id(slug: str, *, stamp: str | None = None) -> str:
+    timestamp = stamp or datetime.now().strftime("%Y%m%d-%H%M%S")
+    return f"{timestamp}-{slug}"
 
 
 def local_url_path(value: str) -> str | None:
@@ -244,11 +228,22 @@ def resolve_source_arg(repo: Path, sessions_root: Path, source: str | None) -> P
     return PlanSource(path=path, source=str(path))
 
 
-def copy_plan_to_worktree_flow(
-    repo: Path, source: Path, title: str | None = None
-) -> Path:
-    slug = slugify(title if title is not None else plan_title(source))
-    target = repo / WORKTREE_FLOW_DIR / slug / "plan.md"
+def unique_worktree_flow_dir(root: Path, slug: str) -> Path:
+    run_id = timestamped_run_id(slug)
+    target = root / run_id
+    if not target.exists():
+        return target
+    for suffix in range(2, 1000):
+        candidate = root / f"{run_id}-{suffix}"
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"Could not choose a unique worktree-flow directory for {slug}")
+
+
+def copy_plan_to_worktree_flow(repo: Path, source: Path) -> Path:
+    slug = slugify(plan_title(source))
+    target_dir = unique_worktree_flow_dir(repo / WORKTREE_FLOW_DIR, slug)
+    target = target_dir / "plan.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
 
@@ -283,7 +278,7 @@ def command_for_plan(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Copy the latest OMP plan to .omp/worktree-flow/<slug>/plan.md."
+        description="Copy the latest OMP plan to .omp/worktree-flow/<timestamp>-<slug>/plan.md."
     )
     parser.add_argument("--repo", default=".", help="Repository root. Defaults to cwd.")
     parser.add_argument(
@@ -313,17 +308,10 @@ def main(argv: list[str] | None = None) -> int:
     (repo / DEFAULT_HARNESS_DIR).mkdir(exist_ok=True)
     (repo / WORKTREE_FLOW_DIR).mkdir(parents=True, exist_ok=True)
 
-    sessions_root = (
-        Path(args.sessions_root).resolve()
-        if args.sessions_root
-        else default_sessions_root(repo)
-    )
+    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else default_sessions_root(repo)
     plan_source = resolve_source_arg(repo, sessions_root, args.source)
-    title = plan_title(plan_source.path)
-    warn_if_generic_plan_title(title)
-    saved_plan = copy_plan_to_worktree_flow(repo, plan_source.path, title)
+    saved_plan = copy_plan_to_worktree_flow(repo, plan_source.path)
     print(command_for_plan(repo, saved_plan, args.harness, Path(args.harness_dir)))
-    print(command_for_plan(repo, saved_plan, args.harness, Path(args.harness_dir), "python3"))
     return 0
 
 
