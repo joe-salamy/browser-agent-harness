@@ -1,6 +1,1 @@
-- Be concise by default: answer with only the decision, changed files, verification, and blockers; avoid background, step-by-step narration, repeated summaries, and optional detail unless the user asks for it.
-- Before performing any action (edits, web search, etc), briefly state in chat what files or behavior you intend to change and why. Do not wait for approval.
 - Keep CLI and browser GUI in parity: when adding or changing any user-facing CLI command or flag, expose the same workflow in the browser GUI in the same change, or document why that CLI behavior is not browser-applicable; update tests for both surfaces.
-- Treat `docs/scratchpad.md` as private scratch space. Do not read, search, open, modify, diff, summarize, or quote it. If it appears in broad file listings or git status output, ignore it.
-- When plan mode is active, use the `ask` tool every time before producing a plan. Ask any clarifying questions needed, or ask the user to confirm that no clarification is needed.
-- Every Markdown plan file must start with a single descriptive H1 (`# ...`) before any `##` sections. Use the H1 as a stable, filesystem-safe worktree-flow title, not a generic label like `Plan`; `worktree-flow.py` derives branch, worktree, staging, and archive names from that header.
